@@ -1,0 +1,11 @@
+.git
+.venv
+var
+node_modules
+frontend
+data/*.wav
+data/*.txt
+data/*.json
+data/__pycache__
+**/__pycache__
+*.pyc

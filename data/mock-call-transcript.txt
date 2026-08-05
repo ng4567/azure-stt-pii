@@ -1,0 +1,117 @@
+Mock call transcript - all names, identifiers, addresses, and payment data below are fictional test data.
+
+REP: Thank you for calling Northstar Telecom. My name is Maya. How may I help you today?
+
+CUSTOMER: Hello? Yes, hello, dear. I am hoping you can help me get internet put in at my house. The television is fine, but my grandson says I need the internet for the video doctor visits.
+
+REP: I can absolutely help with that. Before we begin, may I have your full name?
+
+CUSTOMER: It is Eleanor June Whitaker. Eleanor like the president's wife, and Whitaker, W-H-I-T-A-K-E-R. I am eighty-two, so you may have to speak a little slowly for me.
+
+REP: Of course, Ms. Whitaker. I will go slowly. Are you looking for internet service only?
+
+CUSTOMER: Yes, internet only. I do not need all those channels. My neighbor said the regular plan would do.
+
+REP: We have a 300 megabit internet plan available in your area for $55 per month, plus taxes and fees. It includes a Wi-Fi gateway. Would that work for you?
+
+CUSTOMER: Three hundred... what did you say? Megabytes?
+
+REP: Three hundred megabits. It is a good plan for video calls, browsing, and streaming.
+
+CUSTOMER: Oh, yes. That sounds right. [PAUSE 3 SECONDS] I have to find my papers. They are in this little blue folder.
+
+REP: Take your time.
+
+CUSTOMER: [PAPERS RUSTLING] My hearing aid is whistling. One moment. [PAUSE 6 SECONDS] All right, I am back.
+
+REP: No problem. To check availability, may I have the service address?
+
+CUSTOMER: Yes. It is 742 Evergreen Terrace... wait, no, that is not right. That is the address from an old television show. My address is 1847 Willowbrook Lane, apartment 3B, Brookhaven, New York, 11719.
+
+REP: Thank you. That is 1847 Willowbrook Lane, apartment 3B, Brookhaven, New York, 11719. Is that correct?
+
+CUSTOMER: Yes, that is correct. The building is the one with the green awning. The door buzzer says Whitaker.
+
+REP: I have the address. We can install service there. May I have a phone number where our technician can reach you?
+
+CUSTOMER: It is 202... 555... 0148. Let me say it again: 202-555-0148.
+
+REP: Thank you. And what is the best email address for order updates and your online account?
+
+CUSTOMER: My grandson made it for me. It is eleanor dot whitaker... no, wait. It is eleanor.whitaker82@example.com. Eleanor, dot, Whitaker, eight two, at example dot com.
+
+REP: I have eleanor.whitaker82@example.com. Is it okay to send your order confirmation there?
+
+CUSTOMER: Yes, but please also call me. I do not always see the computer messages right away.
+
+REP: Certainly. For identity verification, I will need your date of birth and the last four digits of your Social Security number.
+
+CUSTOMER: My birthday is February 29, 1944. And the last four are 9876.
+
+REP: Thank you. For this test call transcript, I will confirm that the verification information was accepted. I also see a previous mailing address associated with your name. Could you confirm it was 88 Harbor View Drive, unit 12, Bayport, New York, 11705?
+
+CUSTOMER: Yes, that was my old apartment. I moved from there last autumn after my husband passed. [PAUSE 4 SECONDS] Sorry, I get a little turned around with all the addresses.
+
+REP: I understand, and I am sorry for your loss. You are doing just fine. The installation appointment I have available is Tuesday, August 11, between 8:00 AM and noon. Would someone be home then?
+
+CUSTOMER: Tuesday the eleventh? Let me check the calendar. [PAUSE 5 SECONDS] Yes, I believe so. My daughter visits on Wednesdays. Tuesday is good.
+
+REP: Great. The technician will need access to the cable outlet near the television. There is no charge for standard installation. There is a one-time $25 activation fee, and the monthly total today will be $55 plus applicable taxes and fees.
+
+CUSTOMER: I understand. Is the little box included?
+
+REP: Yes, the Wi-Fi gateway is included. To complete the order, may I collect a payment card for the activation fee and monthly billing?
+
+CUSTOMER: Yes, I have it right here. [PAUSE 2 SECONDS] Oh dear, I cannot see the numbers. Let me put on my other glasses.
+
+REP: Take your time. You can read the numbers in groups of four when you are ready.
+
+CUSTOMER: [PAUSE 8 SECONDS] All right. It is a Visa. The number is 4111 1111 1111 1111.
+
+REP: Thank you. What is the expiration date?
+
+CUSTOMER: November of 2030. That is one one, slash, three zero.
+
+REP: And the three-digit security code on the back?
+
+CUSTOMER: [MUTED 4 SECONDS]
+
+REP: Ms. Whitaker, I think your phone may be muted.
+
+CUSTOMER: Oh, for goodness' sake. My grandson showed me this button, and now I press it by accident. Can you hear me now?
+
+REP: Yes, I can hear you now.
+
+CUSTOMER: The security code is 123.
+
+REP: Thank you. The billing address for the card is the Willowbrook Lane address we discussed. Is that correct?
+
+CUSTOMER: Yes, 1847 Willowbrook Lane, apartment 3B, Brookhaven, New York, 11719.
+
+REP: Perfect. I have submitted the payment information. [PAUSE 3 SECONDS] The card was approved.
+
+CUSTOMER: Oh, good. I always worry when a machine has to decide something.
+
+REP: Your new account has been created. Your account number is NS-4938-2176. Your service is Northstar 300 Internet at $55 per month, with the $25 activation fee charged today. Installation is scheduled for Tuesday, August 11, from 8:00 AM to noon.
+
+CUSTOMER: Could you say the day again, slowly?
+
+REP: Tuesday, August 11, between 8:00 AM and noon.
+
+CUSTOMER: Tuesday, August 11. All right. And someone will call before they come?
+
+REP: Yes. We will call 202-555-0148 when the technician is on the way, and we will email the confirmation to eleanor.whitaker82@example.com.
+
+CUSTOMER: Very good. Do I need to write down that account number?
+
+REP: You may, although it will also be in your confirmation email. The account number is N as in November, S as in Sam, 4938, 2176.
+
+CUSTOMER: N-S, 4938, 2176. [PAUSE 2 SECONDS] I wrote it down, I think. My pen is not very good anymore.
+
+REP: That is all right. Is there anything else I can help you with today?
+
+CUSTOMER: No, dear, you have been very patient. Thank you for helping this old lady get connected.
+
+REP: It was my pleasure, Ms. Whitaker. Thank you for choosing Northstar Telecom. Have a good day.
+
+CUSTOMER: You too. Goodbye.

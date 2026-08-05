@@ -1,0 +1,16 @@
+[project]
+name = "azure-stt-pii"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "azure-cognitiveservices-speech>=1.51.1",
+    "azure-identity>=1.25.3",
+    "fastapi>=0.141.1",
+    "jiwer>=4.0.0",
+    "python-multipart>=0.0.32",
+    "requests>=2.34.2",
+    "uvicorn[standard]>=0.52.1",
+    "websockets>=17.0.1",
+]

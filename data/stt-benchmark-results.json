@@ -1,0 +1,79 @@
+{
+  "audio_seconds": 505.824,
+  "vad_utterances": 103,
+  "reference_words": 989,
+  "scored": true,
+  "engines": {
+    "architecture-1-azure-speech-realtime": {
+      "label": "1. Azure Speech real-time (SDK)",
+      "metrics": {
+        "mode": "real-time (incremental)",
+        "wall_seconds": 505.9708944580052,
+        "time_to_full_transcript": 505.9708944580052,
+        "finalization_lag": {
+          "mean": 0.7736846851402189,
+          "median": 0.7965242499974465,
+          "p95": 1.0373717499873578,
+          "max": 1.1245991659769743,
+          "count": 73
+        },
+        "segments": 73,
+        "wer": 0.056622851365015166,
+        "accuracy": 0.9433771486349848,
+        "substitutions": 27,
+        "deletions": 24,
+        "insertions": 5,
+        "hits": 938,
+        "word_count": 970
+      }
+    },
+    "architecture-2-mai-transcribe-realtime": {
+      "label": "2. MAI-Transcribe-1.5 real-time (Voice Live)",
+      "metrics": {
+        "mode": "real-time (utterance micro-batch)",
+        "wall_seconds": 505.9202292909613,
+        "time_to_full_transcript": 505.9202292909613,
+        "finalization_lag": {
+          "mean": 0.8023124309132346,
+          "median": 0.776438832981512,
+          "p95": 0.9110212500090711,
+          "max": 2.456725500000175,
+          "count": 103
+        },
+        "segments": 102,
+        "utterances_committed": 103,
+        "wer": 0.029322548028311426,
+        "accuracy": 0.9706774519716885,
+        "substitutions": 14,
+        "deletions": 6,
+        "insertions": 9,
+        "hits": 969,
+        "word_count": 992
+      }
+    },
+    "architecture-3-mai-transcribe-batch": {
+      "label": "3. MAI-Transcribe-1.5 batch (one call)",
+      "metrics": {
+        "mode": "batch (post-call)",
+        "wall_seconds": 7.783540625008754,
+        "turnaround_seconds": 7.783540625008754,
+        "time_to_full_transcript": 513.6075406250088,
+        "finalization_lag": {
+          "mean": null,
+          "median": null,
+          "p95": null,
+          "max": null,
+          "count": 0
+        },
+        "segments": 1,
+        "wer": 0.04044489383215369,
+        "accuracy": 0.9595551061678463,
+        "substitutions": 21,
+        "deletions": 5,
+        "insertions": 14,
+        "hits": 963,
+        "word_count": 998
+      }
+    }
+  }
+}

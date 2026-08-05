@@ -1,0 +1,17 @@
+{
+  "name": "azure-stt-pii-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot server.ts",
+    "start": "bun server.ts",
+    "build": "bun build ./src/index.html --outdir ./dist --minify",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "happy-dom": "^20.11.1",
+    "typescript": "^5.9.2"
+  }
+}
