@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/usr/local
 
-# ffmpeg     - normalizes uploaded audio to 16-bit mono PCM
+# ffmpeg     - normalizes uploaded audio to 16-bit mono/stereo PCM
 # azure-cli  - backs DefaultAzureCredential from the mounted ~/.azure profile
 # libasound2/libssl3 - runtime dependencies of the Speech SDK
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,7 +26,10 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY backend ./backend
-COPY data/stt.py ./data/stt.py
+COPY data/stt.py data/conversation.py ./data/
+# The mock call is seeded as the default benchmark input on startup.
+COPY data/mock-call.wav data/mock-call-stereo.wav data/mock-call-transcript.txt \
+    data/mock-call-stereo-stt-benchmark-results.json ./data/
 
 ENV REPO_ROOT=/app \
     BENCHMARK_DIR=/app/data \

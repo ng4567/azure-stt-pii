@@ -19,6 +19,9 @@ Authentication uses Microsoft Entra ID (`DefaultAzureCredential`) because local
 For more samples please visit https://github.com/Azure-Samples/cognitive-services-speech-sdk
 """
 
+import argparse
+import array
+import json
 import re
 import wave
 from pathlib import Path
@@ -36,6 +39,8 @@ RESOURCE_ID = (
 
 TRANSCRIPT_PATH = Path(__file__).with_name("mock-call-transcript.txt")
 OUTPUT_PATH = Path(__file__).with_name("mock-call.wav")
+STEREO_OUTPUT_PATH = Path(__file__).with_name("mock-call-stereo.wav")
+STEREO_REFERENCE_PATH = Path(__file__).with_name("mock-call-stereo-turns.json")
 
 # MAI Voice 2 voices, one per speaker in the transcript.
 VOICES = {
@@ -55,6 +60,14 @@ TIMED_DIRECTION_RE = re.compile(r"(?:PAUSE|MUTED)\s+(\d+)\s+SECONDS?", re.IGNORE
 
 def silence(seconds: float) -> bytes:
     return b"\x00" * (int(SAMPLE_RATE * seconds) * SAMPLE_WIDTH)
+
+
+def stereo_frames(mono: bytes, channel: int) -> bytes:
+    samples = array.array("h")
+    samples.frombytes(mono)
+    stereo = array.array("h", [0]) * (len(samples) * 2)
+    stereo[channel::2] = samples
+    return stereo.tobytes()
 
 
 def parse_transcript(path: Path) -> list[tuple[str, str]]:
@@ -119,13 +132,8 @@ def synthesize(speech_config: speechsdk.SpeechConfig, voice: str, text: str) -> 
     raise RuntimeError(f"Speech synthesis failed: {result.reason}")
 
 
-def main() -> None:
-    turns = parse_transcript(TRANSCRIPT_PATH)
-    print(f"Parsed {len(turns)} turns from {TRANSCRIPT_PATH.name}")
-
-    speech_config = build_speech_config()
+def generate_mono(turns: list[tuple[str, str]], speech_config) -> None:
     audio = bytearray()
-
     for index, (speaker, text) in enumerate(turns, start=1):
         voice = VOICES[speaker]
         for spoken, pause in split_segments(text):
@@ -144,6 +152,90 @@ def main() -> None:
 
     duration = len(audio) / (SAMPLE_RATE * SAMPLE_WIDTH)
     print(f"Wrote {OUTPUT_PATH} ({duration:.1f}s, {len(audio) / 1e6:.1f} MB)")
+
+
+def generate_stereo(turns: list[tuple[str, str]], speech_config) -> None:
+    audio = bytearray()
+    reference_turns = []
+    sample_cursor = 0
+    channel_for = {"REP": 0, "CUSTOMER": 1}
+
+    for index, (speaker, text) in enumerate(turns, start=1):
+        voice = VOICES[speaker]
+        channel = channel_for[speaker]
+        turn_start = sample_cursor
+        spoken_text = []
+        for spoken, pause in split_segments(text):
+            if spoken:
+                mono = synthesize(speech_config, voice, spoken)
+                audio += stereo_frames(mono, channel)
+                sample_cursor += len(mono) // SAMPLE_WIDTH
+                spoken_text.append(spoken)
+            if pause:
+                mono_silence = silence(pause)
+                audio += stereo_frames(mono_silence, channel)
+                sample_cursor += len(mono_silence) // SAMPLE_WIDTH
+
+        turn_end = sample_cursor
+        gap = silence(GAP_SECONDS)
+        audio += stereo_frames(gap, channel)
+        sample_cursor += len(gap) // SAMPLE_WIDTH
+        if spoken_text:
+            reference_turns.append(
+                {
+                    "id": f"turn-{index:04d}",
+                    "participantId": speaker,
+                    "channel": channel,
+                    "offset": int(turn_start / SAMPLE_RATE * 10_000_000),
+                    "duration": int(
+                        (turn_end - turn_start) / SAMPLE_RATE * 10_000_000
+                    ),
+                    "text": " ".join(spoken_text),
+                }
+            )
+        print(f"  [{index}/{len(turns)}] {speaker} ch{channel} ({voice}): {text[:60]}")
+
+    with wave.open(str(STEREO_OUTPUT_PATH), "wb") as wav:
+        wav.setnchannels(2)
+        wav.setsampwidth(SAMPLE_WIDTH)
+        wav.setframerate(SAMPLE_RATE)
+        wav.writeframes(bytes(audio))
+
+    reference = {
+        "id": "mock-call-stereo",
+        "language": "en",
+        "modality": "transcript",
+        "speakerAttributed": True,
+        "channelMap": {"0": "REP", "1": "CUSTOMER"},
+        "conversationItems": reference_turns,
+    }
+    STEREO_REFERENCE_PATH.write_text(
+        json.dumps(reference, indent=2), encoding="utf-8"
+    )
+    duration = sample_cursor / SAMPLE_RATE
+    print(
+        f"Wrote {STEREO_OUTPUT_PATH} "
+        f"({duration:.1f}s, {len(audio) / 1e6:.1f} MB, stereo)"
+    )
+    print(f"Wrote {STEREO_REFERENCE_PATH}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--stereo",
+        action="store_true",
+        help="Generate mock-call-stereo.wav without replacing the mono baseline.",
+    )
+    args = parser.parse_args()
+    turns = parse_transcript(TRANSCRIPT_PATH)
+    print(f"Parsed {len(turns)} turns from {TRANSCRIPT_PATH.name}")
+
+    speech_config = build_speech_config()
+    if args.stereo:
+        generate_stereo(turns, speech_config)
+    else:
+        generate_mono(turns, speech_config)
 
 
 if __name__ == "__main__":

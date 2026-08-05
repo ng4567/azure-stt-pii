@@ -24,11 +24,17 @@ export function formatSeconds(value: number | null | undefined): string {
 export function describeUpload(upload: UploadMeta): string {
   const parts: string[] = [];
   if (upload.audio) {
-    const { filename, duration_seconds, sample_rate, size_bytes, transcoded } =
+    const { filename, duration_seconds, sample_rate, channels, size_bytes, transcoded } =
       upload.audio;
+    const channelMap = upload.channel_map
+      ? ` · ${Object.entries(upload.channel_map)
+          .map(([channel, participant]) => `ch${channel}=${participant}`)
+          .join(", ")}`
+      : "";
     parts.push(
       `audio: ${filename ?? "recording"} · ${formatDuration(duration_seconds)} · ` +
-        `${(sample_rate / 1000).toFixed(1)} kHz mono · ${formatBytes(size_bytes)}` +
+        `${(sample_rate / 1000).toFixed(1)} kHz ${channels === 2 ? "stereo" : "mono"} · ` +
+        `${formatBytes(size_bytes)}${channelMap}` +
         (transcoded ? " · transcoded" : ""),
     );
   }
@@ -43,7 +49,6 @@ export function describeUpload(upload: UploadMeta): string {
 }
 
 export interface UploadHandlers {
-  onBenchmark(uploadId: string, button: HTMLButtonElement): void;
   onDelete(uploadId: string, button: HTMLButtonElement): void;
 }
 
@@ -65,9 +70,10 @@ export function renderUploads(
       const main = document.createElement("div");
       main.className = "row-main";
       main.innerHTML = `
-        <div class="row-title">${upload.id}</div>
+        <div class="row-title">${upload.label ?? upload.id}</div>
         <div class="row-meta">${describeUpload(upload) || "empty upload"}</div>
         <div class="badges">
+          ${upload.builtin ? `<span class="badge builtin">default</span>` : ""}
           <span class="badge ${upload.audio ? "done" : "pending"}">${
             upload.audio ? "audio" : "no audio"
           }</span>
@@ -79,22 +85,14 @@ export function renderUploads(
       const actions = document.createElement("div");
       actions.className = "actions";
 
-      const run = document.createElement("button");
-      run.textContent = upload.transcript
-        ? "Transcribe + score"
-        : "Transcribe (unscored)";
-      run.disabled = !upload.audio;
-      run.title = upload.audio
-        ? "Run all three architectures against this recording"
-        : "Upload audio to run the benchmark";
-      run.addEventListener("click", () => handlers.onBenchmark(upload.id, run));
+      if (!upload.builtin) {
+        const remove = document.createElement("button");
+        remove.className = "danger";
+        remove.textContent = "Delete";
+        remove.addEventListener("click", () => handlers.onDelete(upload.id, remove));
+        actions.append(remove);
+      }
 
-      const remove = document.createElement("button");
-      remove.className = "danger";
-      remove.textContent = "Delete";
-      remove.addEventListener("click", () => handlers.onDelete(upload.id, remove));
-
-      actions.append(run, remove);
       row.append(main, actions);
       return row;
     }),
@@ -115,6 +113,7 @@ export function renderMetricsTable(
             <td colspan="6" class="numeric">failed: ${entry.error ?? "no metrics"}</td>
           </tr>`;
       }
+
       const m = entry.metrics;
       const lag = m.finalization_lag;
       const latency =
@@ -160,18 +159,59 @@ export function renderMetricsTable(
              scored. Latency and transcripts are still measured.</p>`
     }`;
 
+  const participantRows = entries.flatMap(([, entry]) =>
+    Object.entries(entry.metrics?.participants ?? {}).map(
+      ([participant, metrics]) =>
+        `<tr><td>${entry.label}</td><td>${participant}</td>` +
+        `<td class="numeric">${formatPercent(metrics.wer)}</td></tr>`,
+    ),
+  );
+  if (participantRows.length > 0) {
+    const heading = document.createElement("h3");
+    heading.textContent = "Per-participant WER";
+    const table = document.createElement("table");
+    table.innerHTML =
+      "<thead><tr><th>Architecture</th><th>Participant</th><th>WER</th></tr></thead>" +
+      `<tbody>${participantRows.join("")}</tbody>`;
+    wrapper.append(heading, table);
+  }
+
   for (const [, entry] of entries) {
-    if (!entry.transcript) continue;
+    if (!entry.transcript && !entry.conversation) continue;
     const details = document.createElement("details");
     const summary = document.createElement("summary");
-    summary.textContent = `Transcript — ${entry.label}`;
+    summary.textContent = `Speaker turns — ${entry.label}`;
     const pre = document.createElement("pre");
-    pre.textContent = entry.transcript;
+    pre.textContent = entry.conversation
+      ? entry.conversation.conversationItems
+          .map((turn) => {
+            const start = (turn.offset / 10_000_000).toFixed(2);
+            return `[${start}s] ${turn.participantId}: ${turn.text}`;
+          })
+          .join("\n")
+      : entry.transcript ?? "";
     details.append(summary, pre);
     wrapper.append(details);
+
+    if (entry.transcript) {
+      const flat = document.createElement("details");
+      const flatSummary = document.createElement("summary");
+      flatSummary.textContent = `Flat transcript — ${entry.label}`;
+      const flatPre = document.createElement("pre");
+      flatPre.textContent = entry.transcript;
+      flat.append(flatSummary, flatPre);
+      wrapper.append(flat);
+    }
   }
 
   return wrapper;
+}
+
+export function renderCachedBenchmark(
+  panel: HTMLElement,
+  report: NonNullable<Job["result"]>,
+): void {
+  panel.replaceChildren(renderMetricsTable(report));
 }
 
 export function renderJobs(panel: HTMLElement, jobs: Job[], now = Date.now()): void {

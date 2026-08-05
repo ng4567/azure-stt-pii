@@ -4,6 +4,7 @@ export interface AudioMeta {
   filename: string | null;
   duration_seconds: number;
   sample_rate: number;
+  channels: number;
   transcoded: boolean;
   size_bytes: number;
 }
@@ -17,6 +18,10 @@ export interface TranscriptMeta {
 export interface UploadMeta {
   id: string;
   created_at: string;
+  /** True for the checked-in mock call, which is seeded and cannot be deleted. */
+  builtin?: boolean;
+  label?: string | null;
+  channel_map?: Record<string, string>;
   audio: AudioMeta | null;
   transcript: TranscriptMeta | null;
 }
@@ -37,6 +42,9 @@ export interface EngineMetrics {
   time_to_full_transcript: number;
   finalization_lag: LagStats;
   segments: number;
+  channel_sessions?: number;
+  utterance_requests?: number;
+  timing_estimated?: boolean;
   word_count: number;
   wer?: number;
   accuracy?: number;
@@ -44,17 +52,57 @@ export interface EngineMetrics {
   deletions?: number;
   insertions?: number;
   hits?: number;
+  participants?: Record<string, {
+    wer: number;
+    accuracy: number;
+    substitutions: number;
+    deletions: number;
+    insertions: number;
+    hits: number;
+  }>;
+}
+
+export interface AudioTiming {
+  word: string;
+  offset: number;
+  duration: number;
+}
+
+export interface ConversationTurn {
+  id: string;
+  participantId: string;
+  channel: number;
+  offset: number;
+  duration: number;
+  text: string;
+  lexical?: string;
+  itn?: string;
+  maskedItn?: string;
+  audioTimings?: AudioTiming[];
+}
+
+export interface Conversation {
+  id: string;
+  language: string;
+  modality: "transcript";
+  speakerAttributed: boolean;
+  channelMap: Record<string, string>;
+  conversationItems: ConversationTurn[];
 }
 
 export interface EngineResult {
   label: string;
   metrics?: EngineMetrics;
   transcript?: string;
+  conversation?: Conversation | null;
   error?: string;
 }
 
 export interface BenchmarkReport {
   audio_seconds: number;
+  channel_count: number;
+  channel_map: Record<string, string>;
+  speaker_attributed: boolean;
   vad_utterances: number;
   reference_words: number | null;
   scored: boolean;
@@ -100,15 +148,28 @@ export const api = {
 
   listUploads: () => request<UploadMeta[]>("/api/uploads"),
 
-  createUpload(files: { audio?: File; transcript?: File }): Promise<UploadMeta> {
+  createUpload(files: {
+    audio?: File;
+    transcript?: File;
+    channel0Participant?: string;
+    channel1Participant?: string;
+  }): Promise<UploadMeta> {
     const form = new FormData();
     if (files.audio) form.append("audio", files.audio);
     if (files.transcript) form.append("transcript", files.transcript);
+    form.append("channel_0_participant", files.channel0Participant ?? "REP");
+    form.append("channel_1_participant", files.channel1Participant ?? "CUSTOMER");
     return request<UploadMeta>("/api/uploads", { method: "POST", body: form });
   },
 
   deleteUpload: (id: string) =>
     request<void>(`/api/uploads/${id}`, { method: "DELETE" }),
+
+  getDefaultBenchmark: () =>
+    request<BenchmarkReport>("/api/benchmark/default"),
+
+  startDefaultBenchmark: () =>
+    request<Job>("/api/benchmark", { method: "POST" }),
 
   startBenchmark: (id: string) =>
     request<Job>(`/api/uploads/${id}/benchmark`, { method: "POST" }),

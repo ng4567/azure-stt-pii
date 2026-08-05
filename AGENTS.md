@@ -24,6 +24,9 @@ run gets started.
 
 Today the UI can:
 
+- run the checked-in mock call out of the box: `data/mock-call.wav` and
+  `data/mock-call-transcript.txt` are seeded on startup as a built-in, non-deletable
+  upload, so the benchmark is runnable without uploading anything,
 - upload audio and/or a reference transcript,
 - transcribe uploaded audio through all three architectures (wired to
   `stt.run_benchmark`), scoring word error rate when a reference transcript is
@@ -38,6 +41,10 @@ summarization stages, and cost comparison, are expected to surface here too.
 - `data/stt.py` has exactly one benchmark implementation. `run_benchmark()` is the
   shared entry point for both the CLI and the API; do not fork a second copy of the
   orchestration for the web path.
+- `data/mock-call.wav` and `data/mock-call-transcript.txt` are the default benchmark
+  inputs everywhere: they are the defaults of `AUDIO_PATH` / `TRANSCRIPT_PATH` for
+  the CLI, they ship in the backend image, and they are seeded as the `mock-call`
+  upload for the UI. Keep those three in sync.
 - Uploaded audio is normalized to 16-bit mono PCM WAV before it reaches the
   benchmark. Audio already in that form is passed through untouched so scores
   reflect the original samples, not a resampled copy.

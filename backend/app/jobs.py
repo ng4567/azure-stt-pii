@@ -15,10 +15,12 @@ from pathlib import Path
 
 from . import uploads
 from .config import MAX_CONCURRENT_JOBS
+from .config import BENCHMARK_DIR
 
 import stt  # noqa: E402  - resolved via BENCHMARK_DIR on sys.path (see config)
 
 RESULT_NAME = "benchmark.json"
+CACHED_DEFAULT_RESULT = BENCHMARK_DIR / "mock-call-stereo-stt-benchmark-results.json"
 
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
@@ -48,6 +50,13 @@ def list_all() -> list[dict]:
     return sorted(jobs, key=lambda job: job["created_at"], reverse=True)
 
 
+def cached_default() -> dict:
+    """Load the checked-in comparison without starting billable Azure work."""
+    if not CACHED_DEFAULT_RESULT.is_file():
+        raise FileNotFoundError("The cached default benchmark result is unavailable.")
+    return json.loads(CACHED_DEFAULT_RESULT.read_text(encoding="utf-8"))
+
+
 def _run(job_id: str, audio: Path, transcript: Path | None) -> None:
     _update(job_id, status="running", started_at=_now())
 
@@ -56,7 +65,17 @@ def _run(job_id: str, audio: Path, transcript: Path | None) -> None:
             _jobs[job_id]["engines"][engine_key] = state
 
     try:
-        report = stt.run_benchmark(audio, transcript, on_progress)
+        upload = uploads.load(get(job_id)["upload_id"])
+        channel_map = {
+            int(channel): participant
+            for channel, participant in upload.get("channel_map", {}).items()
+        }
+        report = stt.run_benchmark(
+            audio,
+            transcript,
+            on_progress,
+            channel_map=channel_map or None,
+        )
     except Exception as error:
         _update(
             job_id,

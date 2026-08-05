@@ -1,6 +1,6 @@
 /** UI for uploading call audio/transcripts and running the benchmark suite. */
 import { api } from "./api.ts";
-import { renderJobs, renderUploads } from "./render.ts";
+import { renderCachedBenchmark, renderJobs, renderUploads } from "./render.ts";
 
 const POLL_INTERVAL_MS = 2000;
 
@@ -13,11 +13,14 @@ const el = <T extends HTMLElement>(id: string): T => {
 const uploadForm = el<HTMLFormElement>("upload-form");
 const audioInput = el<HTMLInputElement>("audio-input");
 const transcriptInput = el<HTMLInputElement>("transcript-input");
+const channel0Participant = el<HTMLInputElement>("channel-0-participant");
+const channel1Participant = el<HTMLInputElement>("channel-1-participant");
 const uploadButton = el<HTMLButtonElement>("upload-button");
 const uploadMessage = el<HTMLElement>("upload-message");
 const backendStatus = el<HTMLElement>("backend-status");
 const uploadsPanel = el<HTMLElement>("uploads");
 const jobsPanel = el<HTMLElement>("jobs");
+const cachedPanel = el<HTMLElement>("cached-results");
 
 function setMessage(text: string, kind: "" | "error" | "success" = ""): void {
   uploadMessage.textContent = text;
@@ -28,7 +31,6 @@ async function refresh(): Promise<void> {
   try {
     const [uploads, jobs] = await Promise.all([api.listUploads(), api.listJobs()]);
     renderUploads(uploadsPanel, uploads, {
-      onBenchmark: (id, button) => void startBenchmark(id, button),
       onDelete: (id, button) => void deleteUpload(id, button),
     });
     renderJobs(jobsPanel, jobs);
@@ -37,19 +39,6 @@ async function refresh(): Promise<void> {
   } catch (error) {
     backendStatus.textContent = `backend unreachable — ${(error as Error).message}`;
     backendStatus.className = "status-pill offline";
-  }
-}
-
-async function startBenchmark(uploadId: string, button: HTMLButtonElement) {
-  button.disabled = true;
-  try {
-    await api.startBenchmark(uploadId);
-    setMessage("Benchmark started.", "success");
-  } catch (error) {
-    setMessage((error as Error).message, "error");
-  } finally {
-    button.disabled = false;
-    await refresh();
   }
 }
 
@@ -69,17 +58,24 @@ uploadForm.addEventListener("submit", async (event) => {
   const audio = audioInput.files?.[0];
   const transcript = transcriptInput.files?.[0];
 
-  if (!audio && !transcript) {
-    setMessage("Choose an audio file, a transcript, or both.", "error");
-    return;
-  }
-
   uploadButton.disabled = true;
-  setMessage(audio ? "Uploading and decoding audio…" : "Uploading…");
+  setMessage(audio ? "Uploading audio and starting benchmark…" : "Starting benchmark…");
   try {
-    await api.createUpload({ audio, transcript });
+    if (audio || transcript) {
+      const upload = await api.createUpload({
+        audio,
+        transcript,
+        channel0Participant: channel0Participant.value,
+        channel1Participant: channel1Participant.value,
+      });
+      await api.startBenchmark(upload.id);
+    } else {
+      await api.startDefaultBenchmark();
+    }
     uploadForm.reset();
-    setMessage("Uploaded.", "success");
+    channel0Participant.value = "REP";
+    channel1Participant.value = "CUSTOMER";
+    setMessage("Benchmark started. Results will update below.", "success");
   } catch (error) {
     setMessage((error as Error).message, "error");
   } finally {
@@ -88,5 +84,13 @@ uploadForm.addEventListener("submit", async (event) => {
   }
 });
 
-void refresh();
+async function loadCachedBenchmark(): Promise<void> {
+  try {
+    renderCachedBenchmark(cachedPanel, await api.getDefaultBenchmark());
+  } catch (error) {
+    cachedPanel.textContent = `Cached comparison unavailable: ${(error as Error).message}`;
+  }
+}
+
+void Promise.all([loadCachedBenchmark(), refresh()]);
 setInterval(() => void refresh(), POLL_INTERVAL_MS);

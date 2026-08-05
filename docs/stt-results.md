@@ -13,8 +13,22 @@ speculative unless explicitly flagged as unverified.
 
 ## 1. What is being measured
 
-A 505.8s synthetic two-speaker support call (`data/mock-call.wav`, 24kHz mono),
-generated from the 989-word reference transcript `data/mock-call-transcript.txt`.
+A synthetic two-speaker support call generated from the 989-word reference transcript
+`data/mock-call-transcript.txt`. Two fixtures are retained:
+
+- `data/mock-call.wav` - the original 505.8s, 24kHz mono baseline used for the
+  published results below.
+- `data/mock-call-stereo.wav` - a separate 24kHz stereo fixture with REP on channel 0
+  and CUSTOMER on channel 1. `data/mock-call-stereo-turns.json` records its reference
+  channel map and turn timing.
+
+The frontend treats the stereo fixture as its single default input and immediately
+shows `data/mock-call-stereo-stt-benchmark-results.json` as a cached architecture
+comparison. The mono fixture is retained for historical CLI reproduction, not shown
+as a second frontend benchmark. One frontend action runs either uploaded audio, the
+default audio when no audio is supplied, or the default audio with an uploaded
+transcript-only reference.
+
 Three STT variants are run **concurrently**, so a full benchmark pass costs roughly
 one call duration rather than three.
 
@@ -22,7 +36,7 @@ one call duration rather than three.
 | --- | --- | --- | --- |
 | 1 | Azure Speech (standard) | Speech SDK `SpeechRecognizer` | real-time, incremental |
 | 2 | MAI-Transcribe-1.5 | Voice Live WebSocket | real-time, utterance micro-batch |
-| 3 | MAI-Transcribe-1.5 | Fast-transcription REST | batch, post-call |
+| 3 | MAI-Transcribe-1.5 | Fast-transcription REST | post-call VAD utterances |
 
 These variant numbers are independent of the architecture sections in the README.
 Variants 1 and 2 are the STT stages of Architecture 1 and Architecture 2; variant 3
@@ -31,6 +45,38 @@ is Architecture 2's model in post-call batch mode.
 ---
 
 ## 2. Results
+
+### Dual-channel, turn-ready run
+
+Generated August 5, 2026 from `mock-call-stereo.wav` (504.168s), with REP on channel 0,
+CUSTOMER on channel 1, and 113 channel-local VAD utterances.
+
+| Variant | WER | Accuracy | Mean lag | p95 lag | Transcript ready | Turns |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1. Azure Speech real-time | 5.36% | 94.64% | 0.76s | 0.92s | 504.3s | 85 |
+| 2. MAI real-time | **3.34%** | **96.66%** | 0.83s | 1.02s | **504.4s** | 112 |
+| 3. MAI post-call VAD utterances | 4.15% | 95.85% | 17.75s turnaround | n/a | 521.9s | 112 |
+
+| Variant | REP WER | CUSTOMER WER |
+| --- | --- | --- |
+| Azure Speech real-time | 3.69% | 7.42% |
+| MAI real-time | 3.14% | **3.82%** |
+| MAI post-call | **2.03%** | 6.97% |
+
+The structured result is persisted at
+`data/mock-call-stereo-stt-benchmark-results.json`, with one canonical conversation
+JSON per engine (`data/mock-call-stereo-conversation-*.json`). MAI real-time still
+has the best overall accuracy at real-time latency.
+
+The post-call implementation required an important architectural correction. A raw
+MAI enhanced request returns one phrase spanning the full duration of each channel,
+despite the general fast-transcription feature table advertising segment timestamps.
+Those two channel-sized strings cannot be interleaved into trustworthy turns.
+Variant 3 therefore sends the 113 channel-local VAD utterances concurrently after the
+call. This preserves measured offsets and valid Conversation PII items, at the cost of
+request fan-out and 17.75s turnaround instead of the old 7.8s whole-file turnaround.
+
+### Original mono baseline
 
 | Variant | WER | Accuracy | Mean lag | p95 lag | Transcript ready | Segments |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -52,6 +98,46 @@ when fed VAD-aligned utterances than when handed the whole call in one request.
 
 Raw metrics are persisted to `data/stt-benchmark-results.json`. Per-engine
 transcripts are written to `data/transcript-architecture-{1,2,3}-*.txt`.
+
+### Canonical turn output for downstream PII
+
+The benchmark no longer treats the flat transcript as its primary artifact. Every
+engine emits one canonical conversation containing chronological
+`conversationItems` with:
+
+- stable `id` and `participantId`;
+- source `channel`;
+- `offset` and `duration` in 100-nanosecond ticks;
+- display `text`;
+- optional `lexical`, `itn`, `maskedItn`, and word `audioTimings` when supplied.
+
+The flat transcript and WER are derived by joining those ordered turns. Dual-channel
+results also include per-participant WER. `conversation_pii_input()` projects the
+canonical object into the exact Conversation PII transcript shape by stripping
+benchmark-only channel and timing metadata.
+
+This contract follows the documented
+[Conversation PII transcript input](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/how-to/redact-conversation-pii):
+one asynchronous conversation per request, a list of participant-labelled turns, and
+a 1,000-character maximum per conversation item. Conversation PII integration itself
+is intentionally deferred; this benchmark now stops at a reusable input boundary for
+both that service and the regex + LLM architecture.
+
+For dual-channel input, channel identity replaces diarization:
+
+| Channel | Participant |
+| --- | --- |
+| 0 | REP / agent |
+| 1 | CUSTOMER / customer |
+
+Azure Speech uses two concurrent recognizers. MAI Voice Live uses two concurrent
+WebSockets with independent VAD. MAI batch uses two concurrent mono requests because
+Microsoft's current feature matrix marks stereo channel separation unsupported for
+MAI-Transcribe. Results are merged by offset, and overlapping turns remain separate.
+
+Mono remains supported as an un-attributed baseline with one `speaker` participant,
+but it is explicitly marked `speakerAttributed: false` and should not feed a
+speaker-aware architecture comparison.
 
 ### What WER means
 
@@ -88,14 +174,20 @@ comes from the transcript's own `REP:` / `CUSTOMER:` labels, not from the STT se
 If a future variant needs service-side diarization, add $0.30/hr, which takes Azure
 Speech to $1.30/hr and widens the gap to 3.6x.
 
-Billing is on **audio duration**, not wall-clock or request count, so variants 2 and 3
-cost the same despite very different transports. The 505.8s call is 0.140507 hours.
+Billing is on **audio duration**, not wall-clock or request count. The table below is
+for the original mono run, where variants 2 and 3 process one identical audio stream.
+The 505.8s call is 0.140507 hours.
 
 | Engine | Per call | 1,000 calls | 100,000 calls | Per 1,000 audio hours |
 | --- | --- | --- | --- | --- |
 | MAI-Transcribe-1.5 (variants 2 and 3) | $0.0506 | $50.58 | $5,058 | $360 |
 | Azure Speech standard (variant 1) | $0.1405 | $140.51 | $14,051 | $1,000 |
 | *Azure Speech + diarization (not used)* | *$0.1827* | *$182.66* | *$18,266* | *$1,300* |
+
+For stereo, no diarization add-on is needed. MAI nevertheless requires two separately
+submitted mono streams because it lacks channel separation. Whether Azure bills that
+pattern as one call-hour or two processed audio-hours has not been verified; use 2x as
+the conservative planning bound and do not present it as a measured price.
 
 MAI-Transcribe-1.5 is **2.78x cheaper** than standard Azure Speech STT while scoring
 roughly half the WER. On this workload it wins on both axes simultaneously, which is
@@ -147,13 +239,13 @@ difference. If the product needs sub-utterance partials, variant 1 or
 ### Chunking is VAD-aligned, and only applied to MAI
 
 `stt.py` runs a local RMS-based VAD and commits at natural pauses. **This is applied
-only to variant 2.** Variant 1 receives one unbroken stream and the *service* does its
-own endpointing; nothing is clipped locally. The local VAD exists solely to give MAI
-equivalent utterance boundaries.
+only to variant 2.** Variant 1 receives one unbroken stream per channel and the
+*service* does its own endpointing; nothing is clipped locally. The local VAD exists
+solely to give MAI equivalent utterance boundaries.
 
-Even then, MAI keeps a **single persistent WebSocket** open for the whole call - a
-commit marks a boundary in the server-side buffer, it is not a fresh API call per
-utterance.
+Even then, MAI keeps **one persistent WebSocket per channel** open for the whole call -
+a commit marks a boundary in that channel's server-side buffer, not a fresh API call
+per utterance.
 
 VAD parameters: `VAD_RMS_THRESHOLD=150`, `VAD_MIN_SILENCE_SECONDS=0.5`,
 `VAD_MAX_UTTERANCE_SECONDS=20`, yielding 103 utterances with a median of 2.6s -
@@ -236,6 +328,13 @@ There is no `az cognitiveservices account deployment create` step and it does no
 appear in the model catalog. It is selected **per request**. Do not waste time looking
 for a deployment.
 
+The current
+[fast-transcription feature matrix](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/fast-transcription-create#feature-availability)
+marks both stereo channel separation and word timestamps unsupported for
+MAI-Transcribe. The dual-channel implementation therefore uses one mono request or
+session per channel and can support text redaction, but not Conversation PII's precise
+word-level audio-redaction output.
+
 ### Batch (fast transcription)
 
 ```
@@ -302,15 +401,22 @@ the eastus2 catalog, but its `.delta` behavior was never actually tested.
 ```bash
 uv run python data/tts.py    # regenerates data/mock-call.wav - see warning below
 uv run python data/stt.py    # runs all three variants concurrently, ~9 minutes
+
+uv run python data/tts.py --stereo
+uv run python data/stt.py \
+  --audio data/mock-call-stereo.wav \
+  --channel-0 REP --channel-1 CUSTOMER
 ```
 
-**Do not regenerate `mock-call.wav` casually.** TTS output is not deterministic, so a
-new WAV invalidates every number in this document.
+**Do not regenerate either fixture casually.** TTS output is not deterministic, so a
+new WAV invalidates the corresponding numbers in this document. `--stereo` never
+overwrites the mono baseline.
 
-`data/stt.py` exposes `run_benchmark(audio_path=..., reference_path=..., on_progress=...)`
-for programmatic use, with an `ENGINES` dict and per-engine exception isolation, so one
-failing variant does not abort the run. Scoring is skipped when no reference transcript
-is supplied.
+`data/stt.py` exposes
+`run_benchmark(audio_path=..., reference_path=..., on_progress=..., channel_map=...)`
+for programmatic use, with an `ENGINES` dict and per-engine exception isolation, so
+one failing variant does not abort the run. Scoring is skipped when no reference
+transcript is supplied.
 
 ---
 

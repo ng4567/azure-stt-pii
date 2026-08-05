@@ -16,8 +16,7 @@ if str(BENCHMARK_DIR) not in sys.path:
 # checked-in mock call.
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", REPO_ROOT / "var" / "uploads"))
 
-# The Speech SDK and Voice Live both want 16-bit mono PCM; anything else is
-# transcoded on upload.
+# Uploads remain mono/stereo; each STT adapter receives synchronized mono channels.
 TARGET_SAMPLE_RATE = int(os.environ.get("TARGET_SAMPLE_RATE", "16000"))
 
 MAX_CONCURRENT_JOBS = int(os.environ.get("MAX_CONCURRENT_JOBS", "2"))

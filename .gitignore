@@ -15,3 +15,4 @@ frontend/dist/
 
 # Runtime uploads and benchmark output from the API
 var/
+.env

@@ -1,0 +1,908 @@
+{
+  "id": "mock-call-stereo-architecture-3-mai-transcribe-batch",
+  "language": "en",
+  "modality": "transcript",
+  "speakerAttributed": true,
+  "channelMap": {
+    "0": "REP",
+    "1": "CUSTOMER"
+  },
+  "conversationItems": [
+    {
+      "id": "turn-0001",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 200000,
+      "duration": 17800000,
+      "text": "Thank you for calling North Star Telecom."
+    },
+    {
+      "id": "turn-0002",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 65200000,
+      "duration": 9600000,
+      "text": "My name is Maya."
+    },
+    {
+      "id": "turn-0003",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 81200000,
+      "duration": 11199999,
+      "text": "How may I help you today?"
+    },
+    {
+      "id": "turn-0004",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 98800000,
+      "duration": 5199999,
+      "text": "Hello?"
+    },
+    {
+      "id": "turn-0005",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 113600000,
+      "duration": 11600000,
+      "text": "Yes, hello, dear."
+    },
+    {
+      "id": "turn-0006",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 131000000,
+      "duration": 30600000,
+      "text": "I am hoping you can help me get internet put in at my house."
+    },
+    {
+      "id": "turn-0007",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 168200000,
+      "duration": 59200000,
+      "text": "The television is fine, but my grandson says I need the internet for the video doctor visits."
+    },
+    {
+      "id": "turn-0008",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 232600000,
+      "duration": 41400000,
+      "text": "I can absolutely help with that. Before we begin, may I have your full name?"
+    },
+    {
+      "id": "turn-0009",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 280200000,
+      "duration": 43400000,
+      "text": "It is Eleanor June Whitaker. Eleanor, like the president's wife."
+    },
+    {
+      "id": "turn-0010",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 329000000,
+      "duration": 41600000,
+      "text": "And Whittaker, W-H-I-T-A-K-E-R."
+    },
+    {
+      "id": "turn-0011",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 379000000,
+      "duration": 29200000,
+      "text": "I am 82, so you may have to speak a little slowly for me."
+    },
+    {
+      "id": "turn-0012",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 414600000,
+      "duration": 53400000,
+      "text": "Of course, Ms. Whitaker, I will go slowly. Are you looking for internet service only?"
+    },
+    {
+      "id": "turn-0013",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 476200000,
+      "duration": 52400000,
+      "text": "Yes, internet only. I do not need all those channels. My neighbor said the regular plan would do."
+    },
+    {
+      "id": "turn-0014",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 537000000,
+      "duration": 91000000,
+      "text": "We have a 300 megabit internet plan available in your area for 55 dollars per month, plus taxes and fees. It includes a Wi-Fi gateway. Would that work for you?"
+    },
+    {
+      "id": "turn-0015",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 635600000,
+      "duration": 9000000,
+      "text": "300."
+    },
+    {
+      "id": "turn-0016",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 650800000,
+      "duration": 12999999,
+      "text": "What did you say, megabytes?"
+    },
+    {
+      "id": "turn-0017",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 669200000,
+      "duration": 53400000,
+      "text": "300 megabits. It is a good plan for video calls, browsing, and streaming."
+    },
+    {
+      "id": "turn-0018",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 730200000,
+      "duration": 18400000,
+      "text": "Oh yes, that sounds right."
+    },
+    {
+      "id": "turn-0019",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 782400000,
+      "duration": 32600000,
+      "text": "I have to find my papers. They are in this little blue folder."
+    },
+    {
+      "id": "turn-0020",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 822800000,
+      "duration": 7800000,
+      "text": "Take your time."
+    },
+    {
+      "id": "turn-0021",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 849200000,
+      "duration": 15400000,
+      "text": "My hearing aid is whistling."
+    },
+    {
+      "id": "turn-0022",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 872800000,
+      "duration": 6200000,
+      "text": "One moment."
+    },
+    {
+      "id": "turn-0023",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 943200000,
+      "duration": 6199999,
+      "text": "Alright."
+    },
+    {
+      "id": "turn-0024",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 956400000,
+      "duration": 11000000,
+      "text": "I am back."
+    },
+    {
+      "id": "turn-0025",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 975600000,
+      "duration": 45600000,
+      "text": "No problem. To check availability, may I have the service address?"
+    },
+    {
+      "id": "turn-0026",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1029000000,
+      "duration": 4799999,
+      "text": "Yeah."
+    },
+    {
+      "id": "turn-0027",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1041800000,
+      "duration": 80399999,
+      "text": "It is 742 Evergreen Terrace. Wait, no, that is not right. That is the address from an old television show."
+    },
+    {
+      "id": "turn-0028",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1128800000,
+      "duration": 82400000,
+      "text": "My address is 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719."
+    },
+    {
+      "id": "turn-0029",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 1219200000,
+      "duration": 75599999,
+      "text": "Thank you. That is 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Is that correct?"
+    },
+    {
+      "id": "turn-0030",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1302800000,
+      "duration": 46200000,
+      "text": "Yes, that is correct. The building is the one with the green awning."
+    },
+    {
+      "id": "turn-0031",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1354400000,
+      "duration": 22199999,
+      "text": "The door buzzer, says Whitaker."
+    },
+    {
+      "id": "turn-0032",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 1384200000,
+      "duration": 51799999,
+      "text": "I have the address. We can install service there. May I have a phone number where our technician can reach you?"
+    },
+    {
+      "id": "turn-0033",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1442000000,
+      "duration": 15199999,
+      "text": "It is 200"
+    },
+    {
+      "id": "turn-0034",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1464600000,
+      "duration": 5199999,
+      "text": "Two."
+    },
+    {
+      "id": "turn-0035",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1498400000,
+      "duration": 6599999,
+      "text": "Yes."
+    },
+    {
+      "id": "turn-0036",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1515600000,
+      "duration": 5000000,
+      "text": "Five."
+    },
+    {
+      "id": "turn-0037",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1531200000,
+      "duration": 6200000,
+      "text": "Hundred."
+    },
+    {
+      "id": "turn-0038",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1549200000,
+      "duration": 2399999,
+      "text": "Yeah."
+    },
+    {
+      "id": "turn-0039",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1565800000,
+      "duration": 4799999,
+      "text": "Five."
+    },
+    {
+      "id": "turn-0040",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1594200000,
+      "duration": 7399999,
+      "text": "Zero."
+    },
+    {
+      "id": "turn-0041",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1607400000,
+      "duration": 5000000,
+      "text": "One."
+    },
+    {
+      "id": "turn-0042",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1619400000,
+      "duration": 3400000,
+      "text": "Or"
+    },
+    {
+      "id": "turn-0043",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1629600000,
+      "duration": 3799999,
+      "text": "8."
+    },
+    {
+      "id": "turn-0044",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1643200000,
+      "duration": 7199999,
+      "text": "Let me say it again."
+    },
+    {
+      "id": "turn-0045",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1660000000,
+      "duration": 5200000,
+      "text": "Two."
+    },
+    {
+      "id": "turn-0046",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1673000000,
+      "duration": 6799999,
+      "text": "Zero."
+    },
+    {
+      "id": "turn-0047",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1685400000,
+      "duration": 5200000,
+      "text": "To"
+    },
+    {
+      "id": "turn-0048",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1698800000,
+      "duration": 8200000,
+      "text": "Five, five."
+    },
+    {
+      "id": "turn-0049",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1717600000,
+      "duration": 4600000,
+      "text": "Bye."
+    },
+    {
+      "id": "turn-0050",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1731000000,
+      "duration": 6800000,
+      "text": "Zero."
+    },
+    {
+      "id": "turn-0051",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1745600000,
+      "duration": 5000000,
+      "text": "One."
+    },
+    {
+      "id": "turn-0052",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1758200000,
+      "duration": 6000000,
+      "text": "Four eights."
+    },
+    {
+      "id": "turn-0053",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 1772200000,
+      "duration": 45399999,
+      "text": "Thank you. And what is the best email address for order updates in your online account?"
+    },
+    {
+      "id": "turn-0054",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1825800000,
+      "duration": 12999999,
+      "text": "My grandson made it for me."
+    },
+    {
+      "id": "turn-0055",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1846200000,
+      "duration": 24399999,
+      "text": "It is Eleanor dot Whitaker."
+    },
+    {
+      "id": "turn-0056",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1877800000,
+      "duration": 54000000,
+      "text": "No, wait. It is eleanor.whitaker82 at example.com."
+    },
+    {
+      "id": "turn-0057",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 1939000000,
+      "duration": 51200000,
+      "text": "Eleanor. Whittaker82@example.com."
+    },
+    {
+      "id": "turn-0058",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 1997800000,
+      "duration": 72599999,
+      "text": "I have eleanor.whittaker82@example.com. Is it okay to send your order confirmation there?"
+    },
+    {
+      "id": "turn-0059",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 2077000000,
+      "duration": 51199999,
+      "text": "Yes, but please also call me. I do not always see the computer messages right away."
+    },
+    {
+      "id": "turn-0060",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 2136600000,
+      "duration": 75600000,
+      "text": "Certainly. For identity verification, I will need your date of birth and the last four digits of your social security number."
+    },
+    {
+      "id": "turn-0061",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 2220800000,
+      "duration": 45600000,
+      "text": "My birthday is February 29th, 1944."
+    },
+    {
+      "id": "turn-0062",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 2279800000,
+      "duration": 32599999,
+      "text": "And the last four are 98, 76."
+    },
+    {
+      "id": "turn-0063",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 2320200000,
+      "duration": 175999999,
+      "text": "Thank you. For this test call transcript, I will confirm that the verification information was accepted. I also see a previous mailing address associated with your name. Could you confirm it was 88 Harbor View Drive, Unit 12, Bayport, New York, 11705?"
+    },
+    {
+      "id": "turn-0064",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 2504800000,
+      "duration": 18399999,
+      "text": "Yes, that was my old apartment."
+    },
+    {
+      "id": "turn-0065",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 2531200000,
+      "duration": 25200000,
+      "text": "I moved from there last autumn after my husband passed."
+    },
+    {
+      "id": "turn-0066",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 2599000000,
+      "duration": 25600000,
+      "text": "Sorry, I get a little turned around with all the addresses."
+    },
+    {
+      "id": "turn-0067",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 2632600000,
+      "duration": 121400000,
+      "text": "I understand, and I am sorry for your loss. You are doing just fine. The installation appointment I have available is Tuesday, August 11th, between 8:00 AM and noon. Would someone be home then?"
+    },
+    {
+      "id": "turn-0068",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 2762000000,
+      "duration": 24399999,
+      "text": "Tuesday the 11th, let me check the calendar."
+    },
+    {
+      "id": "turn-0069",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 2840800000,
+      "duration": 41600000,
+      "text": "Yes, I believe so. My daughter visits on Wednesdays."
+    },
+    {
+      "id": "turn-0070",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 2891200000,
+      "duration": 12200000,
+      "text": "Tuesday is good."
+    },
+    {
+      "id": "turn-0071",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 2911400000,
+      "duration": 179399999,
+      "text": "Great. The technician will need access to the cable outlet near the television. There is no charge for standard, standard installation. There is a one-time $25 activation fee, and the monthly total today will be $55 plus applicable taxes and fees."
+    },
+    {
+      "id": "turn-0072",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3099000000,
+      "duration": 26399999,
+      "text": "I understand. Is the little box included?"
+    },
+    {
+      "id": "turn-0073",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 3133800000,
+      "duration": 83199999,
+      "text": "Yes, the Wi-Fi gateway is included. To complete the order, may I collect a payment card for the activation fee and monthly billing?"
+    },
+    {
+      "id": "turn-0074",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3225200000,
+      "duration": 13600000,
+      "text": "Yes, I have it right here."
+    },
+    {
+      "id": "turn-0075",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3262600000,
+      "duration": 57599999,
+      "text": "Oh dear, I cannot see the numbers. Let me put on my other glasses."
+    },
+    {
+      "id": "turn-0076",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 3325800000,
+      "duration": 7800000,
+      "text": "Take your time."
+    },
+    {
+      "id": "turn-0077",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 3340800000,
+      "duration": 38799999,
+      "text": "You can read the numbers in groups of four when you are ready."
+    },
+    {
+      "id": "turn-0078",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3467800000,
+      "duration": 65799999,
+      "text": "All right, it is a visa. The number is 4-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1."
+    },
+    {
+      "id": "turn-0079",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 3541400000,
+      "duration": 18600000,
+      "text": "Thank you. What is the expiration date?"
+    },
+    {
+      "id": "turn-0080",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3567400000,
+      "duration": 21200000,
+      "text": "November of 2030."
+    },
+    {
+      "id": "turn-0081",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3593800000,
+      "duration": 17400000,
+      "text": "That is 1/1 slash"
+    },
+    {
+      "id": "turn-0082",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3618200000,
+      "duration": 6399999,
+      "text": "Three row."
+    },
+    {
+      "id": "turn-0083",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 3633000000,
+      "duration": 21800000,
+      "text": "And the three-digit security code on the back?"
+    },
+    {
+      "id": "turn-0084",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 3705000000,
+      "duration": 20600000,
+      "text": "Miss Whitaker, I think your phone may be muted."
+    },
+    {
+      "id": "turn-0085",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3733600000,
+      "duration": 14599999,
+      "text": "Oh, for goodness' sake."
+    },
+    {
+      "id": "turn-0086",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3758800000,
+      "duration": 36600000,
+      "text": "My grandson showed me this button, and now I press it by accident."
+    },
+    {
+      "id": "turn-0087",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3805600000,
+      "duration": 11800000,
+      "text": "Can you hear me now?"
+    },
+    {
+      "id": "turn-0088",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 3823400000,
+      "duration": 14399999,
+      "text": "Yes, I can hear you now."
+    },
+    {
+      "id": "turn-0089",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3846200000,
+      "duration": 26800000,
+      "text": "The security code is 123."
+    },
+    {
+      "id": "turn-0090",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 3881400000,
+      "duration": 53200000,
+      "text": "Thank you. The billing address for the card is the Willowbrook Lane address we discussed, is that correct?"
+    },
+    {
+      "id": "turn-0091",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 3943000000,
+      "duration": 56999999,
+      "text": "Yes, 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719."
+    },
+    {
+      "id": "turn-0092",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 4008200000,
+      "duration": 28600000,
+      "text": "Perfect. I have submitted the payment information."
+    },
+    {
+      "id": "turn-0093",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 4070600000,
+      "duration": 13799999,
+      "text": "The card was approved."
+    },
+    {
+      "id": "turn-0094",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 4089400000,
+      "duration": 40600000,
+      "text": "Oh, good. I always worry when a machine has to decide something."
+    },
+    {
+      "id": "turn-0095",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 4138000000,
+      "duration": 71200000,
+      "text": "Your new account has been created. Your account number is NS49382176."
+    },
+    {
+      "id": "turn-0096",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 4217400000,
+      "duration": 81200000,
+      "text": "Your service is Northstar 300 Internet at $55 per month, with the $25 activation fee charged today."
+    },
+    {
+      "id": "turn-0097",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 4306000000,
+      "duration": 51800000,
+      "text": "Installation is scheduled for Tuesday, August 11th, from 8:00 AM to noon."
+    },
+    {
+      "id": "turn-0098",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 4365600000,
+      "duration": 13799999,
+      "text": "Could you say the day again slowly?"
+    },
+    {
+      "id": "turn-0099",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 4387200000,
+      "duration": 28599999,
+      "text": "Tuesday, August 11th, between 8:00 AM and noon."
+    },
+    {
+      "id": "turn-0100",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 4424000000,
+      "duration": 17399999,
+      "text": "Tuesday, August 11th."
+    },
+    {
+      "id": "turn-0101",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 4450200000,
+      "duration": 3200000,
+      "text": "Alright."
+    },
+    {
+      "id": "turn-0102",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 4462000000,
+      "duration": 24200000,
+      "text": "And someone will call before they come."
+    },
+    {
+      "id": "turn-0103",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 4494400000,
+      "duration": 123400000,
+      "text": "Yes, we will call 202-555-148 when the technician is on the way, and we will email the confirmation to eleanor.wediker82@example.com."
+    },
+    {
+      "id": "turn-0104",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 4626200000,
+      "duration": 5199999,
+      "text": "Very good."
+    },
+    {
+      "id": "turn-0105",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 4637000000,
+      "duration": 21600000,
+      "text": "Do I need to write down that account number?"
+    },
+    {
+      "id": "turn-0106",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 4666400000,
+      "duration": 93799999,
+      "text": "You may, although it will also be in your confirmation email. The account number is N as in November, S as in Sam, 4938-2176."
+    },
+    {
+      "id": "turn-0107",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 4767800000,
+      "duration": 36399999,
+      "text": "NS 4938-2176."
+    },
+    {
+      "id": "turn-0108",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 4827800000,
+      "duration": 35199999,
+      "text": "I wrote it down, I think. My pen is not very good anymore."
+    },
+    {
+      "id": "turn-0109",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 4871000000,
+      "duration": 31399999,
+      "text": "That is all right. Is there anything else I can help you with today?"
+    },
+    {
+      "id": "turn-0110",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 4910400000,
+      "duration": 53799999,
+      "text": "No, dear, you have been very patient. Thank you for helping this old lady get connected."
+    },
+    {
+      "id": "turn-0111",
+      "participantId": "REP",
+      "channel": 0,
+      "offset": 4970400000,
+      "duration": 45799999,
+      "text": "It was my pleasure, Ms. Whitaker. Thank you for choosing North Star Telecom. Have a good day."
+    },
+    {
+      "id": "turn-0112",
+      "participantId": "CUSTOMER",
+      "channel": 1,
+      "offset": 5025000000,
+      "duration": 9000000,
+      "text": "You too. Goodbye."
+    }
+  ]
+}

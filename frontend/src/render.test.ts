@@ -3,7 +3,12 @@ import { beforeAll, expect, test } from "bun:test";
 import { Window } from "happy-dom";
 
 import type { Job, UploadMeta } from "./api.ts";
-import { describeUpload, renderJobs, renderUploads } from "./render.ts";
+import {
+  describeUpload,
+  renderCachedBenchmark,
+  renderJobs,
+  renderUploads,
+} from "./render.ts";
 
 beforeAll(() => {
   const window = new Window({ url: "http://localhost:3000" });
@@ -11,7 +16,7 @@ beforeAll(() => {
   globalThis.document = window.document as unknown as Document;
 });
 
-const noopHandlers = { onBenchmark: () => {}, onDelete: () => {} };
+const noopHandlers = { onDelete: () => {} };
 
 const uploadWithBoth: UploadMeta = {
   id: "af80825c5e78",
@@ -20,6 +25,7 @@ const uploadWithBoth: UploadMeta = {
     filename: "clip-60s.wav",
     duration_seconds: 60,
     sample_rate: 24000,
+    channels: 1,
     transcoded: false,
     size_bytes: 2880044,
   },
@@ -54,6 +60,9 @@ const succeededJob: Job = {
   error: null,
   result: {
     audio_seconds: 60,
+    channel_count: 1,
+    channel_map: { "0": "speaker" },
+    speaker_attributed: false,
     vad_utterances: 13,
     reference_words: 166,
     scored: true,
@@ -61,6 +70,23 @@ const succeededJob: Job = {
       "architecture-1-azure-speech-realtime": {
         label: "1. Azure Speech real-time (SDK)",
         transcript: "Thank you for calling Northstar Telecom.",
+        conversation: {
+          id: "clip-architecture-1",
+          language: "en",
+          modality: "transcript",
+          speakerAttributed: true,
+          channelMap: { "0": "REP", "1": "CUSTOMER" },
+          conversationItems: [
+            {
+              id: "turn-0001",
+              participantId: "REP",
+              channel: 0,
+              offset: 10_000_000,
+              duration: 20_000_000,
+              text: "Thank you for calling Northstar Telecom.",
+            },
+          ],
+        },
         metrics: {
           mode: "real-time (incremental)",
           wall_seconds: 60.4,
@@ -112,6 +138,9 @@ const failedEngineJob: Job = {
   id: "failedengine1",
   result: {
     audio_seconds: 60,
+    channel_count: 1,
+    channel_map: { "0": "speaker" },
+    speaker_attributed: false,
     vad_utterances: 13,
     reference_words: null,
     scored: false,
@@ -129,18 +158,46 @@ function panel(): HTMLElement {
   return document.createElement("div");
 }
 
-test("uploads render with per-upload actions", () => {
+const builtinUpload: UploadMeta = {
+  id: "mock-call",
+  created_at: "2026-08-05T18:00:00.000000+00:00",
+  builtin: true,
+  label: "Mock call (checked-in fixture)",
+  audio: {
+    filename: "mock-call.wav",
+    duration_seconds: 505.824,
+    sample_rate: 24000,
+    channels: 1,
+    transcoded: false,
+    size_bytes: 24279596,
+  },
+  transcript: { filename: "mock-call-transcript.txt", characters: 6251, lines: 117 },
+};
+
+test("uploads render as managed inputs, not separate benchmark actions", () => {
   const node = panel();
   renderUploads(node, [uploadWithBoth, transcriptOnly], noopHandlers);
 
   const buttons = node.querySelectorAll("button");
-  expect(buttons.length).toBe(4);
+  expect(buttons.length).toBe(2);
   expect(node.textContent).toContain("af80825c5e78");
-  expect(node.textContent).toContain("Transcribe + score");
-  // Without audio there is nothing to transcribe, so the run button is disabled.
-  const runButtons = [...buttons].filter((b) => b.textContent?.includes("Transcribe"));
-  expect(runButtons[0]?.disabled).toBe(false);
-  expect(runButtons[1]?.disabled).toBe(true);
+  expect(node.textContent).not.toContain("Transcribe + score");
+  expect([...buttons].every((button) => button.textContent === "Delete")).toBe(true);
+});
+
+test("a built-in record has no per-upload action", () => {
+  const node = panel();
+  renderUploads(node, [builtinUpload], noopHandlers);
+
+  const text = node.textContent ?? "";
+  expect(text).toContain("Mock call (checked-in fixture)");
+  expect(text).toContain("default");
+  expect(text).toContain("mock-call.wav");
+  expect(text).toContain("8m 26s");
+
+  const buttons = [...node.querySelectorAll("button")];
+  expect(buttons.length).toBe(0);
+  expect(text).not.toContain("Delete");
 });
 
 test("empty state renders", () => {
@@ -162,8 +219,18 @@ test("a succeeded job renders the metrics table and transcripts", () => {
   expect(text).toContain("97.59%");
   expect(text).toContain("62.1s"); // batch transcript-ready time
   expect(text).toContain("Scored against 166 reference words");
+  expect(text).toContain("[1.00s] REP:");
   expect(node.querySelectorAll("tbody tr").length).toBe(2);
-  expect(node.querySelectorAll("details").length).toBe(2);
+  expect(node.querySelectorAll("details").length).toBe(4);
+});
+
+test("cached default results render as an architecture comparison", () => {
+  const node = panel();
+  renderCachedBenchmark(node, succeededJob.result!);
+
+  expect(node.textContent).toContain("Azure Speech real-time");
+  expect(node.textContent).toContain("MAI-Transcribe-1.5 batch");
+  expect(node.textContent).toContain("Scored against 166 reference words");
 });
 
 test("a failed engine does not sink the rest of the report", () => {

@@ -9,3 +9,9 @@ data/*.json
 data/__pycache__
 **/__pycache__
 *.pyc
+
+# The mock call is the default benchmark input, so it ships in the image.
+!data/mock-call.wav
+!data/mock-call-stereo.wav
+!data/mock-call-transcript.txt
+!data/mock-call-stereo-stt-benchmark-results.json

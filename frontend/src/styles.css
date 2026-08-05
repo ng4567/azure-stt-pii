@@ -74,7 +74,8 @@ label em {
   color: var(--muted);
 }
 
-input[type="file"] {
+input[type="file"],
+input[type="text"] {
   padding: 0.6rem;
   background: #0d0f16;
   border: 1px dashed var(--border);
@@ -219,6 +220,12 @@ button:disabled {
 .badge.succeeded {
   color: var(--good);
   border-color: var(--good);
+}
+.badge.builtin {
+  color: var(--accent);
+  border-color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .empty {
