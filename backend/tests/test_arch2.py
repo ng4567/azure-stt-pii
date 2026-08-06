@@ -94,14 +94,27 @@ class Architecture2Tests(unittest.TestCase):
         self.assertEqual(source, SOURCE)
         request = post.call_args.kwargs["json"]
         self.assertEqual(request["messages"][0]["content"], "system prompt\nexactly")
-        metrics = result["stages"]["pii_redaction"]["metrics"]
+        metrics = result["stages"]["llm_api_call"]["metrics"]
         self.assertEqual(metrics["input_tokens"], 120)
         self.assertEqual(metrics["output_tokens"], 45)
         self.assertEqual(metrics["total_tokens"], 165)
         self.assertEqual(result["redacted"]["transcript"], "Call [PERSON] at [PHONE_NUMBER].")
         self.assertEqual(result["summary"], "[PERSON] was called at [PHONE_NUMBER].")
         self.assertEqual([entity["category"] for entity in result["entities"]], ["PERSON", "PHONE_NUMBER"])
-        self.assertEqual(list(result["stages"]), ["stt", "pii_redaction", "summarization", "summary_sanitization"])
+        self.assertEqual(
+            list(result["stages"]),
+            [
+                "stt",
+                "regex_detection",
+                "llm_api_call",
+                "transcript_redaction",
+                "summary_sanitization",
+            ],
+        )
+        self.assertEqual(
+            result["stages"]["regex_detection"]["metrics"]["candidate_count"],
+            1,
+        )
 
     @patch("pathlib.Path.read_text", return_value="prompt")
     def test_malformed_response_errors(self, _read_text):
@@ -128,7 +141,7 @@ class Architecture2Tests(unittest.TestCase):
         result = self.adapter(post).run(deepcopy(SOURCE))
 
         self.assertEqual(post.call_count, 2)
-        self.assertEqual(result["stages"]["pii_redaction"]["metrics"]["attempts"], 2)
+        self.assertEqual(result["stages"]["llm_api_call"]["metrics"]["attempts"], 2)
 
     @patch("pathlib.Path.read_text", return_value="prompt")
     def test_exported_processor_supports_custom_identity(self, _read_text):

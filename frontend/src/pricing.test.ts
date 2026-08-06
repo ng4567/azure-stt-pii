@@ -13,6 +13,11 @@ function architecture(metrics: Record<string, Record<string, number>>): Architec
     redacted: null,
     summary: "summary",
     entities: [],
+    latency: {
+      stt_seconds: 1,
+      downstream_seconds: 1,
+      end_to_end_seconds: 2,
+    },
     stages: Object.fromEntries(
       Object.entries(metrics).map(([stage, values]) => [stage, {
         status: "succeeded",
@@ -38,14 +43,14 @@ const report: BenchmarkReport = {
   engines: {},
   architectures: {
     "architecture-1-azure-language": architecture({
-      pii_redaction: { input_characters: 2_000 },
-      summarization: { input_characters: 2_000, output_characters: 500 },
+      pii_endpoint: { input_characters: 2_000 },
+      summarizer_endpoint: { input_characters: 2_000, output_characters: 500 },
     }),
     "architecture-2-mai-realtime-deepseek": architecture({
-      pii_redaction: { input_tokens: 1_000_000, output_tokens: 250_000 },
+      llm_api_call: { input_tokens: 1_000_000, output_tokens: 250_000 },
     }),
     "architecture-3-mai-batch-deepseek": architecture({
-      pii_redaction: { input_tokens: 500_000, output_tokens: 100_000 },
+      llm_api_call: { input_tokens: 500_000, output_tokens: 100_000 },
     }),
   },
 };
@@ -91,12 +96,12 @@ test("prices the cached benchmark usage with confirmed rates and discounts", () 
         summary_output_characters: 660,
       },
       "architecture-2-mai-realtime-deepseek": {
-        deepseek_input_tokens: 6_906,
-        deepseek_output_tokens: 6_743,
+        deepseek_input_tokens: 6_901,
+        deepseek_output_tokens: 7_689,
       },
       "architecture-3-mai-batch-deepseek": {
-        deepseek_input_tokens: 7_124,
-        deepseek_output_tokens: 6_816,
+        deepseek_input_tokens: 7_119,
+        deepseek_output_tokens: 6_800,
       },
     },
   };
@@ -104,10 +109,10 @@ test("prices the cached benchmark usage with confirmed rates and discounts", () 
   const estimates = estimateArchitectureCosts(benchmarkReport);
   expect(estimates[0]!.listTotal).toBeCloseTo(0.290293, 6);
   expect(estimates[0]!.discountedTotal).toBeCloseTo(0.031069, 6);
-  expect(estimates[1]!.listTotal).toBeCloseTo(0.105585, 6);
-  expect(estimates[1]!.discountedTotal).toBeCloseTo(0.014834, 6);
-  expect(estimates[2]!.listTotal).toBeCloseTo(0.105663, 6);
-  expect(estimates[2]!.discountedTotal).toBeCloseTo(0.014913, 6);
+  expect(estimates[1]!.listTotal).toBeCloseTo(0.106066, 6);
+  expect(estimates[1]!.discountedTotal).toBeCloseTo(0.015316, 6);
+  expect(estimates[2]!.listTotal).toBeCloseTo(0.105654, 6);
+  expect(estimates[2]!.discountedTotal).toBeCloseTo(0.014904, 6);
 });
 
 test("does not present missing usage as a zero-cost component", () => {

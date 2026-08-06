@@ -1,5 +1,6 @@
 import unittest
 from copy import deepcopy
+from threading import Barrier
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -176,7 +177,11 @@ class Architecture1Tests(unittest.TestCase):
         self.source = {
             "transcript": "Call Eleanor at 202-555-0148.",
             "conversation": deepcopy(CONVERSATION),
-            "metrics": {"mode": "real-time", "wall_seconds": 3.5},
+            "metrics": {
+                "mode": "real-time",
+                "wall_seconds": 3.5,
+                "time_to_full_transcript": 3.75,
+            },
         }
 
     def test_services_receive_independent_original_canonical_text(self) -> None:
@@ -233,7 +238,13 @@ class Architecture1Tests(unittest.TestCase):
         self.assertEqual(result["entities"][0]["offset"], 5)
         self.assertEqual(
             set(result["stages"]),
-            {"stt", "pii_redaction", "summarization", "summary_sanitization"},
+            {
+                "stt",
+                "pii_endpoint",
+                "summarizer_endpoint",
+                "transcript_redaction",
+                "summary_sanitization",
+            },
         )
 
     def test_summary_is_sanitized_with_typed_placeholders(self) -> None:
@@ -248,13 +259,35 @@ class Architecture1Tests(unittest.TestCase):
             2,
         )
         self.assertEqual(
-            result["stages"]["pii_redaction"]["metrics"]["input_characters"],
+            result["stages"]["pii_endpoint"]["metrics"]["input_characters"],
             len("Call Eleanor at 202-555-0148."),
         )
         self.assertGreater(
-            result["stages"]["summarization"]["metrics"]["output_characters"],
+            result["stages"]["summarizer_endpoint"]["metrics"]["output_characters"],
             0,
         )
+        self.assertEqual(result["latency"]["stt_seconds"], 3.75)
+
+    def test_pii_and_summarizer_endpoints_run_in_parallel(self) -> None:
+        client = FakeLanguageClient()
+        barrier = Barrier(2)
+        original_pii = client.redact_pii
+        original_summary = client.summarize
+
+        def pii(conversation):
+            barrier.wait(timeout=1)
+            return original_pii(conversation)
+
+        def summary(conversation):
+            barrier.wait(timeout=1)
+            return original_summary(conversation)
+
+        client.redact_pii = pii
+        client.summarize = summary
+
+        result = Architecture1Adapter(client).run(self.source)
+
+        self.assertEqual(result["status"], "succeeded")
 
     def test_malformed_pii_response_is_rejected(self) -> None:
         client = FakeLanguageClient()

@@ -42,6 +42,51 @@ ARCHITECTURE_FACTORIES = {
     "architecture-2-mai-realtime-deepseek": Architecture2Adapter,
     "architecture-3-mai-batch-deepseek": Architecture3Adapter,
 }
+ENGINE_ARCHITECTURES = {
+    factory.stt_engine_key: architecture_id
+    for architecture_id, factory in ARCHITECTURE_FACTORIES.items()
+}
+
+
+def run_architecture(selected_adapter, source, on_progress=None) -> dict:
+    """Run one downstream pipeline as soon as its STT result is available."""
+    def notify(architecture_id: str, state: str) -> None:
+        if on_progress is not None:
+            on_progress(architecture_id, state)
+
+    if isinstance(selected_adapter, str):
+        architecture_id = selected_adapter
+        label = ARCHITECTURE_LABELS[architecture_id]
+        try:
+            adapter = ARCHITECTURE_FACTORIES[architecture_id]()
+        except Exception as error:
+            notify(architecture_id, "failed")
+            return failed_architecture(architecture_id, label, error)
+    else:
+        adapter = selected_adapter
+        architecture_id = adapter.architecture_id
+        label = adapter.label
+
+    notify(architecture_id, "running")
+    if source is None:
+        result = failed_architecture(
+            architecture_id,
+            label,
+            f"STT report omitted engine {adapter.stt_engine_key}.",
+        )
+    elif source.get("error"):
+        result = failed_architecture(
+            architecture_id,
+            label,
+            f"STT failed: {source['error']}",
+        )
+    else:
+        try:
+            result = adapter.run(source)
+        except Exception as error:
+            result = failed_architecture(architecture_id, label, error)
+    notify(architecture_id, "done" if result["status"] == "succeeded" else "failed")
+    return result
 
 
 def run_architectures(stt_report: dict, adapters=None, on_progress=None) -> dict[str, dict]:
@@ -50,45 +95,16 @@ def run_architectures(stt_report: dict, adapters=None, on_progress=None) -> dict
     if not selected:
         return {}
 
-    def notify(architecture_id: str, state: str) -> None:
-        if on_progress is not None:
-            on_progress(architecture_id, state)
-
     def run_one(selected_adapter):
         if isinstance(selected_adapter, str):
-            architecture_id = selected_adapter
-            label = ARCHITECTURE_LABELS[architecture_id]
-            try:
-                adapter = ARCHITECTURE_FACTORIES[architecture_id]()
-            except Exception as error:
-                notify(architecture_id, "failed")
-                return failed_architecture(architecture_id, label, error)
+            engine_key = ARCHITECTURE_FACTORIES[selected_adapter].stt_engine_key
         else:
-            adapter = selected_adapter
-            architecture_id = adapter.architecture_id
-            label = adapter.label
-
-        notify(architecture_id, "running")
-        source = stt_report["engines"].get(adapter.stt_engine_key)
-        if source is None:
-            result = failed_architecture(
-                architecture_id,
-                label,
-                f"STT report omitted engine {adapter.stt_engine_key}.",
-            )
-        elif source.get("error"):
-            result = failed_architecture(
-                architecture_id,
-                label,
-                f"STT failed: {source['error']}",
-            )
-        else:
-            try:
-                result = adapter.run(source)
-            except Exception as error:
-                result = failed_architecture(architecture_id, label, error)
-        notify(architecture_id, "done" if result["status"] == "succeeded" else "failed")
-        return result
+            engine_key = selected_adapter.stt_engine_key
+        return run_architecture(
+            selected_adapter,
+            stt_report["engines"].get(engine_key),
+            on_progress,
+        )
 
     with ThreadPoolExecutor(max_workers=len(selected), thread_name_prefix="architecture") as pool:
         results = list(pool.map(run_one, selected))
@@ -117,10 +133,14 @@ def list_all() -> list[dict]:
 
 
 def cached_default() -> dict:
-    """Load the checked-in comparison without starting billable Azure work."""
-    if not CACHED_DEFAULT_RESULT.is_file():
+    """Load the latest saved default run without starting billable Azure work."""
+    persisted_result = uploads.upload_dir(uploads.DEFAULT_UPLOAD_ID) / RESULT_NAME
+    result_path = (
+        persisted_result if persisted_result.is_file() else CACHED_DEFAULT_RESULT
+    )
+    if not result_path.is_file():
         raise FileNotFoundError("The cached default benchmark result is unavailable.")
-    return json.loads(CACHED_DEFAULT_RESULT.read_text(encoding="utf-8"))
+    return json.loads(result_path.read_text(encoding="utf-8"))
 
 
 def _run(job_id: str, audio: Path, transcript: Path | None) -> None:
@@ -136,18 +156,44 @@ def _run(job_id: str, audio: Path, transcript: Path | None) -> None:
             int(channel): participant
             for channel, participant in upload.get("channel_map", {}).items()
         }
-        report = stt.run_benchmark(
-            audio,
-            transcript,
-            on_progress,
-            channel_map=channel_map or None,
-        )
-        report["architectures"] = run_architectures(
-            report,
-            on_progress=lambda architecture_id, state: _update_architecture_progress(
-                job_id, architecture_id, state
-            ),
-        )
+        architecture_futures = {}
+        with ThreadPoolExecutor(
+            max_workers=len(ARCHITECTURE_FACTORIES),
+            thread_name_prefix="architecture",
+        ) as architecture_pool:
+            def start_downstream(engine_key: str, source: dict) -> None:
+                architecture_id = ENGINE_ARCHITECTURES[engine_key]
+                architecture_futures[architecture_id] = architecture_pool.submit(
+                    run_architecture,
+                    architecture_id,
+                    source,
+                    lambda selected_id, state: _update_architecture_progress(
+                        job_id, selected_id, state
+                    ),
+                )
+
+            report = stt.run_benchmark(
+                audio,
+                transcript,
+                on_progress,
+                channel_map=channel_map or None,
+                on_engine_result=start_downstream,
+            )
+            if architecture_futures:
+                report["architectures"] = {
+                    architecture_id: architecture_futures[architecture_id].result()
+                    for architecture_id in ARCHITECTURE_FACTORIES
+                    if architecture_id in architecture_futures
+                }
+            else:
+                # Compatibility for tests or alternate benchmark implementations that
+                # return a complete report without emitting per-engine callbacks.
+                report["architectures"] = run_architectures(
+                    report,
+                    on_progress=lambda architecture_id, state: _update_architecture_progress(
+                        job_id, architecture_id, state
+                    ),
+                )
         annotations = uploads.pii_ground_truth_path(upload["id"])
         if transcript is not None and annotations is not None:
             reference = stt.reference_text(transcript)

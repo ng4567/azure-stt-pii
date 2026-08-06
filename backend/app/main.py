@@ -16,7 +16,7 @@ from backend.pii_accuracy import load_ground_truth
 from data import stt
 
 from . import jobs, uploads
-from .config import ALLOWED_ORIGINS, ensure_dirs
+from .config import ALLOWED_ORIGINS, REPO_ROOT, ensure_dirs
 
 app = FastAPI(title="Azure STT + PII benchmark", version="0.1.0")
 
@@ -28,6 +28,20 @@ app.add_middleware(
 )
 
 CHUNK = 1024 * 1024
+ARCHITECTURE_DIAGRAMS = {
+    "architecture-1-azure-language": (
+        REPO_ROOT
+        / "frontend/public/architecture/architecture-1-azure-language.html"
+    ),
+    "architecture-2-mai-realtime-deepseek": (
+        REPO_ROOT
+        / "frontend/public/architecture/architecture-2-mai-realtime-deepseek.html"
+    ),
+    "architecture-3-mai-batch-deepseek": (
+        REPO_ROOT
+        / "frontend/public/architecture/architecture-3-mai-batch-deepseek.html"
+    ),
+}
 
 
 @app.on_event("startup")
@@ -80,6 +94,14 @@ def get_default_transcript() -> FileResponse:
     if not path.is_file():
         raise HTTPException(404, "The default transcript file is unavailable.")
     return FileResponse(path, media_type="text/plain", filename=path.name)
+
+
+@app.get("/api/architecture-diagrams/{architecture_id}")
+def get_architecture_diagram(architecture_id: str) -> FileResponse:
+    path = ARCHITECTURE_DIAGRAMS.get(architecture_id)
+    if path is None or not path.is_file():
+        raise HTTPException(404, "No such architecture diagram.")
+    return FileResponse(path, media_type="text/html")
 
 
 @app.post("/api/uploads", status_code=201)

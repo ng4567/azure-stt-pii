@@ -116,6 +116,16 @@ const succeededJob: Job = {
           deletions: 8,
           insertions: 2,
           hits: 154,
+          participants: {
+            REP: {
+              wer: 0.08,
+              accuracy: 0.92,
+              substitutions: 1,
+              deletions: 1,
+              insertions: 0,
+              hits: 20,
+            },
+          },
         },
       },
       "architecture-3-mai-transcribe-batch": {
@@ -137,7 +147,71 @@ const succeededJob: Job = {
           word_count: 168,
           wer: 0.0241,
           accuracy: 0.9759,
+          participants: {
+            REP: {
+              wer: 0.04,
+              accuracy: 0.96,
+              substitutions: 1,
+              deletions: 0,
+              insertions: 0,
+              hits: 24,
+            },
+          },
         },
+      },
+    },
+    architectures: {
+      "architecture-1-azure-language": {
+        schema_version: "1.0",
+        architecture_id: "architecture-1-azure-language",
+        label: "1. Azure Speech + Azure Language",
+        status: "succeeded",
+        source: null,
+        redacted: {
+          transcript: "Call [PERSON].",
+          conversation: {
+            id: "clip-redacted",
+            language: "en",
+            modality: "transcript",
+            speakerAttributed: true,
+            channelMap: { "0": "REP" },
+            conversationItems: [],
+          },
+        },
+        summary: "[PERSON] requested help.",
+        entities: [],
+        stages: {
+          stt: {
+            status: "succeeded",
+            provider: "Azure AI Speech",
+            model: "real-time",
+            wall_seconds: 60.4,
+            metrics: { time_to_full_transcript: 60.4 },
+            error: null,
+          },
+          pii_endpoint: {
+            status: "succeeded",
+            provider: "Azure AI Language",
+            model: "Conversation PII",
+            wall_seconds: 1.2,
+            metrics: {},
+            error: null,
+          },
+          summarizer_endpoint: {
+            status: "succeeded",
+            provider: "Azure AI Language",
+            model: "Conversational Summarization",
+            wall_seconds: 1.5,
+            metrics: {},
+            error: null,
+          },
+        },
+        latency: {
+          stt_seconds: 60.4,
+          downstream_seconds: 1.6,
+          end_to_end_seconds: 62,
+        },
+        error: null,
       },
     },
     pii_accuracy: {
@@ -251,17 +325,77 @@ test("a succeeded job renders the metrics table and transcripts", () => {
   expect(text).toContain("Discounted total");
   expect(text).toContain("90% on Azure Speech and MAI-Transcribe");
   expect(text).toContain("PII redaction accuracy");
+  expect(text).toContain("End-to-end architecture latency");
+  expect(text).toContain("62.00s");
+  expect(text).toContain("Conversation PII endpoint");
+  expect(text).toContain("[PERSON] requested help.");
   expect(text).toContain("96.00%");
   expect(text).toContain("24 / 1 / 1");
-  expect(node.querySelectorAll("table:first-of-type tbody tr").length).toBe(2);
-  expect(node.querySelectorAll("details").length).toBe(4);
+  expect(node.querySelector("h3")?.textContent).toBe("Estimated processing cost");
+  const participantDetails = [...node.querySelectorAll("details")].find(
+    (details) => details.querySelector("summary")?.textContent === "Per-participant WER",
+  );
+  expect(participantDetails).toBeDefined();
+  expect(participantDetails?.open).toBe(false);
+  expect(node.querySelectorAll(".winner").length).toBeGreaterThan(0);
+  expect(text).toContain("Best");
+  const sttTable = [...node.querySelectorAll("table")].find((table) =>
+    table.textContent?.includes("WER"),
+  );
+  expect(sttTable?.querySelectorAll("tbody tr").length).toBe(2);
+  expect(node.querySelectorAll("details").length).toBe(6);
+});
+
+test("winner highlighting is recalculated for each new report", () => {
+  const node = panel();
+  const first = structuredClone(succeededJob.result!);
+  renderCachedBenchmark(node, first);
+
+  const sttTable = () => [...node.querySelectorAll("table")].find((table) =>
+    table.textContent?.includes("Primary latency"),
+  );
+  const row = (label: string) => [...(sttTable()?.querySelectorAll("tbody tr") ?? [])]
+    .find((candidate) => candidate.textContent?.includes(label));
+
+  expect(row("MAI-Transcribe-1.5 batch")?.querySelectorAll(".winner").length).toBe(2);
+
+  const updated = structuredClone(first);
+  const azure = updated.engines["architecture-1-azure-speech-realtime"]!.metrics!;
+  azure.wer = 0.01;
+  azure.accuracy = 0.99;
+  renderCachedBenchmark(node, updated);
+
+  expect(row("Azure Speech real-time")?.querySelectorAll(".winner").length).toBeGreaterThan(2);
+  expect(row("MAI-Transcribe-1.5 batch")?.querySelectorAll(".winner").length).toBe(0);
+});
+
+test("participant WER dropdown stays open across polling rerenders", () => {
+  const node = panel();
+  renderJobs(node, [succeededJob]);
+  const participantDetails = [...node.querySelectorAll("details")].find(
+    (details) => details.querySelector("summary")?.textContent === "Per-participant WER",
+  );
+  expect(participantDetails).toBeDefined();
+  participantDetails!.open = true;
+
+  renderJobs(node, [succeededJob]);
+
+  const rerendered = [...node.querySelectorAll("details")].find(
+    (details) => details.querySelector("summary")?.textContent === "Per-participant WER",
+  );
+  expect(rerendered?.open).toBe(true);
 });
 
 test("cached default results render as an architecture comparison", () => {
   const node = panel();
-  const { pii_accuracy: _, ...historical } = succeededJob.result!;
+  const { pii_accuracy: _, architectures: __, ...historical } = succeededJob.result!;
   renderCachedBenchmark(node, historical);
 
+  expect(node.textContent).toContain("End-to-end architecture latency");
+  expect(node.textContent).toContain("predates the end-to-end pipeline timings");
+  expect(node.firstElementChild?.textContent).toContain(
+    "End-to-end architecture latency",
+  );
   expect(node.textContent).toContain("Azure Speech real-time");
   expect(node.textContent).toContain("MAI-Transcribe-1.5 batch");
   expect(node.textContent).toContain("Scored against 166 reference words");

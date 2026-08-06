@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture 2 - MAI real-time + DeepSeek | Call Processing Benchmark</title>
+<style>
+  :root{
+    --data:#4299e1; --proc:#ed8936; --ai:#9f7aea; --ok:#48bb78; --warn:#dd6b20;
+    --ink:#2d3748; --muted:#718096; --line:#e2e8f0; --accent:#9f7aea;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+    color:var(--ink);padding:2rem 1rem;min-height:100vh;line-height:1.55;
+  }
+  .container{max-width:1400px;margin:0 auto;background:#fff;border-radius:20px;
+    box-shadow:0 20px 60px rgba(0,0,0,.3);padding:2.5rem}
+  header{border-bottom:4px solid var(--accent);padding-bottom:1.25rem;margin-bottom:1.5rem}
+  h1{font-size:2.1rem;letter-spacing:-.02em}
+  .subtitle{color:var(--muted);font-size:1.05rem;margin-top:.4rem}
+  .badges{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem}
+  .badge{background:#edf2f7;color:#4a5568;border:1px solid var(--line);border-radius:999px;
+    padding:.25rem .75rem;font-size:.78rem;font-weight:600}
+  .badge.data{background:#ebf8ff;color:#2b6cb0;border-color:#bee3f8}
+  .badge.ai{background:#faf5ff;color:#6b46c1;border-color:#e9d8fd}
+  .badge.ok{background:#f0fff4;color:#276749;border-color:#c6f6d5}
+  a{color:#2b6cb0}
+  footer a{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.95em}
+  .section{margin:2.5rem 0}
+  .section-title{font-size:1.4rem;margin-bottom:.4rem;padding-bottom:.5rem;
+    border-bottom:3px solid var(--accent)}
+  .section-lead{color:var(--muted);margin:.6rem 0 1.2rem;max-width:80ch}
+  .metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem}
+  .metric-card{background:linear-gradient(135deg,#9f7aea,#553c9a);color:#fff;border-radius:12px;
+    padding:1.1rem;text-align:center}
+  .metric-value{font-size:1.7rem;font-weight:700}
+  .metric-label{font-size:.8rem;opacity:.9;margin-top:.25rem}
+  .grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.25rem}
+  .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem}
+  .card{border:2px solid var(--line);border-radius:12px;padding:1.15rem;background:#fff}
+  .card h3{font-size:1.05rem;color:#4a5568;margin-bottom:.6rem}
+  .card ul{list-style:none}
+  .card li{padding-left:1.1rem;position:relative;margin:.3rem 0;font-size:.92rem}
+  .card li:before{content:"▸";position:absolute;left:0;color:var(--accent);font-weight:700}
+  .card.data{border-color:#bee3f8} .card.data h3{color:#2b6cb0}
+  .card.proc{border-color:#fbd38d} .card.proc h3{color:#b7791f}
+  .card.ai{border-color:#e9d8fd} .card.ai h3{color:#6b46c1}
+  .card.ok{border-color:#c6f6d5} .card.ok h3{color:#276749}
+  .diagram{overflow-x:auto;background:#f7fafc;border:1px solid var(--line);border-radius:14px;
+    padding:1rem;margin:1rem 0}
+  svg{display:block;width:100%;height:auto;min-width:760px}
+  svg .b{fill:#fff;font-size:13px;font-weight:700}
+  svg .s{fill:#fff;font-size:10.5px;opacity:.92}
+  svg .k{fill:#2d3748;font-size:12px;font-weight:700}
+  svg .m{fill:#4a5568;font-size:10.5px}
+  svg .t{fill:#718096;font-size:10px;font-style:italic}
+  .legend{display:flex;flex-wrap:wrap;gap:1rem;margin-top:.75rem;font-size:.82rem;color:#4a5568}
+  .legend span{display:flex;align-items:center;gap:.4rem}
+  .swatch{width:14px;height:14px;border-radius:4px;display:inline-block}
+  table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.88rem}
+  th,td{border:1px solid var(--line);padding:.55rem .7rem;text-align:left;vertical-align:top}
+  th{background:#f7fafc;font-size:.8rem;text-transform:uppercase;letter-spacing:.03em;color:#4a5568}
+  td code,li code,p code{background:#edf2f7;border-radius:4px;padding:.05rem .3rem;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em}
+  .note{border-left:5px solid var(--accent);background:#faf5ff;border-radius:0 10px 10px 0;
+    padding:.9rem 1.1rem;margin:1rem 0;font-size:.92rem}
+  .note.warn{border-color:var(--warn);background:#fffaf0}
+  .note.ok{border-color:var(--ok);background:#f0fff4}
+  .layer{display:grid;grid-template-columns:210px 1fr;gap:1rem;align-items:stretch;
+    border:2px solid var(--line);border-radius:12px;margin:.85rem 0;overflow:hidden}
+  .layer-name{padding:1rem;font-weight:700;color:#fff;display:flex;flex-direction:column;
+    justify-content:center;font-size:.95rem}
+  .layer-name small{font-weight:500;opacity:.9;font-size:.75rem;margin-top:.2rem}
+  .layer-body{padding:.9rem;display:flex;flex-wrap:wrap;gap:.6rem}
+  .chip{background:#f7fafc;border:1px solid var(--line);border-radius:8px;padding:.45rem .7rem;
+    font-size:.82rem}
+  .chip b{display:block;font-size:.85rem}
+  .chip span{color:var(--muted);font-size:.75rem}
+  footer{margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--line);
+    color:var(--muted);font-size:.83rem}
+  @media (max-width:768px){
+    body{padding:1rem .5rem}.container{padding:1.25rem;border-radius:14px}
+    h1{font-size:1.5rem}.layer{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Architecture 2 &mdash; MAI real-time + DeepSeek</h1>
+  <p class="subtitle">
+    MAI-Transcribe-1.5 streaming through Voice Live at locally detected utterance boundaries,
+    then a single structured-output DeepSeek call in Microsoft Foundry that redacts and
+    summarizes in one response &mdash; the most accurate and cheapest measured pipeline.
+  </p>
+  <div class="badges">
+    <span class="badge data">MAI-Transcribe-1.5 via Voice Live WebSocket</span>
+    <span class="badge">Local VAD commits</span>
+    <span class="badge">Deterministic regex candidate hints</span>
+    <span class="badge ai">DeepSeek in Microsoft Foundry &mdash; one call</span>
+    <span class="badge ai">Strict JSON schema output</span>
+    <span class="badge ok">Entra ID / DefaultAzureCredential</span>
+    <span class="badge">Result schema v1.0 with latency block</span>
+  </div>
+</header>
+
+<!-- ============================= BUSINESS CONTEXT ============================= -->
+<section class="section">
+  <h2 class="section-title">1. Business context</h2>
+  <p class="section-lead">
+    Architecture 2 tests the hypothesis that a modern transcription model plus one well-governed
+    LLM call beats a chain of managed cognitive services on both accuracy and price, without
+    giving up real-time latency.
+  </p>
+
+  <div class="metric-grid">
+    <div class="metric-card"><div class="metric-value">96.66%</div><div class="metric-label">STT accuracy (3.34% WER)</div></div>
+    <div class="metric-card"><div class="metric-value">1.02s</div><div class="metric-label">p95 finalization lag</div></div>
+    <div class="metric-card"><div class="metric-value">504.4s</div><div class="metric-label">Transcript ready (504.2s call)</div></div>
+    <div class="metric-card"><div class="metric-value">$0.014834</div><div class="metric-label">Discounted cost / call</div></div>
+    <div class="metric-card"><div class="metric-value">112</div><div class="metric-label">Speaker turns from 113 commits</div></div>
+    <div class="metric-card"><div class="metric-value">6,906 / 6,743</div><div class="metric-label">DeepSeek input / output tokens</div></div>
+  </div>
+
+  <div class="grid-3" style="margin-top:1.25rem">
+    <div class="card ai">
+      <h3>Objectives</h3>
+      <ul>
+        <li>Halve the word error rate of the classic recognizer at equivalent streaming latency</li>
+        <li>Collapse redaction and summarization into one billable model call</li>
+        <li>Keep the same versioned output contract as the managed-service architecture</li>
+        <li>Prove PII safety without trusting the model's text output verbatim</li>
+      </ul>
+    </div>
+    <div class="card ai">
+      <h3>Users &amp; stakeholders</h3>
+      <ul>
+        <li>Architects weighing an LLM-based pipeline against first-party services</li>
+        <li>Risk owners who need to see what guards the model output</li>
+        <li>Finance owners: no discount applies to Foundry-hosted DeepSeek, so token usage is the whole story</li>
+        <li>Engineers running and polling the benchmark from the browser</li>
+      </ul>
+    </div>
+    <div class="card ok">
+      <h3>Value &amp; measured outcome</h3>
+      <ul>
+        <li><b>Best accuracy</b> of the three: 3.34% WER overall</li>
+        <li><b>Best cost</b> of the three: about <b>52.3% cheaper</b> per call than Architecture 1</li>
+        <li>Most balanced across speakers: 3.14% REP / 3.82% CUSTOMER</li>
+        <li>Finest turn granularity: 112 turns vs 85 from the Speech SDK</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>The trade being measured.</b> Architecture 2 replaces two governed cognitive services with
+    one general-purpose model under a prompt. The repository answers the obvious objection with
+    defence in depth: the model's placeholders are converted back into explicit spans, the spans
+    are re-applied to the original text deterministically, and the summary is scrubbed of every
+    detected literal value afterwards.
+  </div>
+</section>
+
+<!-- ============================= DATA FLOW ============================= -->
+<section class="section">
+  <h2 class="section-title">2. End-to-end data flow</h2>
+  <p class="section-lead">
+    One WebSocket and one independent voice-activity stream per channel; then a single Foundry
+    chat completion carrying the canonical conversation and the regex candidate hints together.
+  </p>
+
+  <div class="diagram">
+  <svg viewBox="0 0 1160 720" role="img" aria-label="Architecture 2 end-to-end data flow">
+    <defs>
+      <marker id="a2arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#718096"/>
+      </marker>
+      <marker id="a2arrowdim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#a0aec0"/>
+      </marker>
+    </defs>
+
+    <text class="k" x="20"  y="24">Sources</text>
+    <text class="k" x="235" y="24">Intake (local)</text>
+    <text class="k" x="455" y="24">STT stage &mdash; Voice Live</text>
+    <text class="k" x="690" y="24">Redaction + summary</text>
+    <text class="k" x="960" y="24">Outputs</text>
+
+    <!-- SOURCES -->
+    <rect x="20" y="120" width="180" height="76" rx="10" fill="#4299e1"/>
+    <text class="b" x="36" y="148">Call recording</text>
+    <text class="s" x="36" y="166">any ffmpeg-readable format</text>
+    <text class="s" x="36" y="182">stereo: ch0 REP / ch1 CUSTOMER</text>
+
+    <rect x="20" y="212" width="180" height="66" rx="10" fill="#63b3ed"/>
+    <text class="b" x="36" y="238">Reference transcript</text>
+    <text class="s" x="36" y="256">optional &mdash; enables WER scoring</text>
+
+    <rect x="20" y="294" width="180" height="66" rx="10" fill="#90cdf4"/>
+    <text class="b" x="36" y="320" fill="#1a365d">PII ground truth</text>
+    <text class="s" x="36" y="338" fill="#2a4365">optional &mdash; enables P/R/F1</text>
+
+    <rect x="20" y="392" width="180" height="72" rx="10" fill="#2c5282"/>
+    <text class="b" x="36" y="418">System prompt file</text>
+    <text class="s" x="36" y="436">runtime configuration,</text>
+    <text class="s" x="36" y="452">used verbatim, shipped in image</text>
+
+    <!-- INTAKE -->
+    <rect x="235" y="120" width="170" height="92" rx="10" fill="#ed8936"/>
+    <text class="b" x="250" y="146">Upload intake</text>
+    <text class="s" x="250" y="164">FastAPI streams to disk</text>
+    <text class="s" x="250" y="180">ffmpeg &rarr; 16-bit PCM,</text>
+    <text class="s" x="250" y="196">compatible WAV passed through</text>
+
+    <rect x="235" y="230" width="170" height="80" rx="10" fill="#dd6b20"/>
+    <text class="b" x="250" y="256">Channel split</text>
+    <text class="s" x="250" y="274">one mono PCM buffer per</text>
+    <text class="s" x="250" y="290">channel; channel = speaker</text>
+
+    <rect x="235" y="330" width="170" height="92" rx="10" fill="#c05621"/>
+    <text class="b" x="250" y="356">Local VAD</text>
+    <text class="s" x="250" y="374">20 ms frames, RMS gate,</text>
+    <text class="s" x="250" y="390">0.5 s silence closes an</text>
+    <text class="s" x="250" y="406">utterance, 20 s hard cap</text>
+
+    <!-- STT -->
+    <rect x="440" y="90" width="195" height="96" rx="10" fill="#9f7aea"/>
+    <text class="b" x="455" y="116">Voice Live socket ch0</text>
+    <text class="s" x="455" y="134">text modality, pcm16 input,</text>
+    <text class="s" x="455" y="150">server turn detection off</text>
+    <text class="s" x="455" y="166">100 ms frames appended at 1&times;</text>
+    <text class="s" x="455" y="182">commit at each VAD boundary</text>
+
+    <rect x="440" y="202" width="195" height="96" rx="10" fill="#9f7aea"/>
+    <text class="b" x="455" y="228">Voice Live socket ch1</text>
+    <text class="s" x="455" y="246">independent session and</text>
+    <text class="s" x="455" y="262">independent VAD stream</text>
+    <text class="s" x="455" y="278">transcription.completed &rarr; turn</text>
+    <text class="s" x="455" y="294">lag measured from commit</text>
+
+    <rect x="440" y="316" width="195" height="92" rx="10" fill="#805ad5"/>
+    <text class="b" x="455" y="342">Merge &amp; canonicalize</text>
+    <text class="s" x="455" y="360">segment text only &mdash; no word</text>
+    <text class="s" x="455" y="376">timings from this engine</text>
+    <text class="s" x="455" y="392">VAD offsets preserved,</text>
+    <text class="s" x="455" y="408">overlapping speech kept</text>
+
+    <rect x="440" y="428" width="195" height="86" rx="10" fill="#ed8936"/>
+    <text class="b" x="455" y="454">Regex candidate hints</text>
+    <text class="s" x="455" y="472">email, phone, SSN, card,</text>
+    <text class="s" x="455" y="488">IP, date of birth</text>
+    <text class="s" x="455" y="504">advisory only &mdash; never redacts</text>
+
+    <!-- FOUNDRY -->
+    <rect x="675" y="150" width="210" height="132" rx="10" fill="#9f7aea"/>
+    <text class="b" x="691" y="176">DeepSeek chat completion</text>
+    <text class="s" x="691" y="194">Microsoft Foundry deployment</text>
+    <text class="s" x="691" y="210">system = prompt file verbatim</text>
+    <text class="s" x="691" y="226">user = conversation + hints</text>
+    <text class="s" x="691" y="242">strict json_schema response</text>
+    <text class="s" x="691" y="258">temperature 0</text>
+    <text class="s" x="691" y="274">returns redaction + summary</text>
+
+    <rect x="675" y="312" width="210" height="96" rx="10" fill="#ed8936"/>
+    <text class="b" x="691" y="338">Contract validation</text>
+    <text class="s" x="691" y="356">turn count preserved,</text>
+    <text class="s" x="691" y="372">id / participant / channel /</text>
+    <text class="s" x="691" y="388">offset / duration unchanged</text>
+    <text class="s" x="691" y="404">retry on violation</text>
+
+    <rect x="675" y="432" width="210" height="112" rx="10" fill="#dd6b20"/>
+    <text class="b" x="691" y="458">Entity matching</text>
+    <text class="s" x="691" y="476">placeholders aligned back to</text>
+    <text class="s" x="691" y="492">source text &rarr; typed spans</text>
+    <text class="s" x="691" y="508">spans re-applied to the</text>
+    <text class="s" x="691" y="524">original turns; summary</text>
+    <text class="s" x="691" y="540">scrubbed of literal values</text>
+
+    <!-- OUTPUTS -->
+    <rect x="930" y="96" width="205" height="72" rx="10" fill="#48bb78"/>
+    <text class="b" x="946" y="122">Redacted conversation</text>
+    <text class="s" x="946" y="140">turn-preserving + derived</text>
+    <text class="s" x="946" y="156">redacted flat transcript</text>
+
+    <rect x="930" y="188" width="205" height="66" rx="10" fill="#38a169"/>
+    <text class="b" x="946" y="214">Sanitized summary</text>
+    <text class="s" x="946" y="232">same response, scrubbed</text>
+
+    <rect x="930" y="274" width="205" height="72" rx="10" fill="#2f855a"/>
+    <text class="b" x="946" y="300">Normalized PII entities</text>
+    <text class="s" x="946" y="318">category, turn id, offset,</text>
+    <text class="s" x="946" y="334">length (no confidence)</text>
+
+    <rect x="930" y="366" width="205" height="80" rx="10" fill="#276749"/>
+    <text class="b" x="946" y="392">Stage + latency metrics</text>
+    <text class="s" x="946" y="410">5 stage timings, tokens,</text>
+    <text class="s" x="946" y="426">stt / downstream /</text>
+    <text class="s" x="946" y="442">end-to-end seconds</text>
+
+    <rect x="930" y="466" width="205" height="66" rx="10" fill="#22543d"/>
+    <text class="b" x="946" y="492">Accuracy scores</text>
+    <text class="s" x="946" y="510">WER + PII precision/recall</text>
+
+    <!-- arrows -->
+    <path d="M200,158 L232,158" stroke="#718096" stroke-width="2" marker-end="url(#a2arrow)"/>
+    <path d="M200,245 L232,245" stroke="#718096" stroke-width="2" marker-end="url(#a2arrow)"/>
+    <path d="M200,327 L215,327 L215,570 L905,570 L905,499" stroke="#a0aec0" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#a2arrowdim)"/>
+    <path d="M200,428 L640,428 L640,216 L672,216" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a2arrow)"/>
+    <text class="t" x="250" y="444">system message</text>
+
+    <path d="M320,212 L320,228" stroke="#718096" stroke-width="2" marker-end="url(#a2arrow)"/>
+    <path d="M320,310 L320,328" stroke="#718096" stroke-width="2" marker-end="url(#a2arrow)"/>
+
+    <path d="M405,266 L422,266 L422,132 L437,132" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a2arrow)"/>
+    <path d="M405,274 L422,274 L422,244 L437,244" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a2arrow)"/>
+    <path d="M405,376 L422,376 L422,358 L437,358" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a2arrow)"/>
+    <text class="t" x="410" y="398">commit boundaries</text>
+
+    <path d="M537,186 L537,314" stroke="#718096" stroke-width="2" marker-end="url(#a2arrow)"/>
+    <path d="M537,298 L537,314" stroke="#718096" stroke-width="2" marker-end="url(#a2arrow)"/>
+    <path d="M537,408 L537,426" stroke="#718096" stroke-width="2" marker-end="url(#a2arrow)"/>
+
+    <path d="M635,362 L655,362 L655,200 L672,200" stroke="#718096" stroke-width="2.4" fill="none" marker-end="url(#a2arrow)"/>
+    <text class="t" x="560" y="330">canonical conversation</text>
+    <path d="M635,470 L658,470 L658,232 L672,232" stroke="#718096" stroke-width="2.4" fill="none" marker-end="url(#a2arrow)"/>
+    <text class="t" x="470" y="530">hints ride along in the same request</text>
+
+    <path d="M780,282 L780,310" stroke="#718096" stroke-width="2" marker-end="url(#a2arrow)"/>
+    <path d="M780,408 L780,430" stroke="#718096" stroke-width="2" marker-end="url(#a2arrow)"/>
+    <path d="M890,340 L905,340 L905,300 L890,300" stroke="#a0aec0" stroke-width="1.6" fill="none" stroke-dasharray="4 3"/>
+    <text class="t" x="892" y="360">retry</text>
+
+    <path d="M885,470 L905,470 L905,132 L927,132" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a2arrow)"/>
+    <path d="M885,480 L908,480 L908,221 L927,221" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a2arrow)"/>
+    <path d="M885,490 L911,490 L911,310 L927,310" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a2arrow)"/>
+    <path d="M885,500 L914,500 L914,406 L927,406" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a2arrow)"/>
+    <path d="M905,570 L905,499 L927,499" stroke="#a0aec0" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#a2arrowdim)"/>
+
+    <rect x="235" y="620" width="900" height="80" rx="10" fill="#edf2f7" stroke="#cbd5e0"/>
+    <text class="k" x="255" y="646">Persistence &amp; delivery</text>
+    <text class="m" x="255" y="666">Result JSON written next to the upload, held in the in-memory job registry, and polled by the</text>
+    <text class="m" x="255" y="684">browser, which renders end-to-end, STT, downstream, and per-stage latency.</text>
+    <path d="M1032,532 L1032,618" stroke="#718096" stroke-width="2" marker-end="url(#a2arrow)"/>
+  </svg>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch" style="background:#4299e1"></i>Data / sources</span>
+    <span><i class="swatch" style="background:#ed8936"></i>Deterministic local processing</span>
+    <span><i class="swatch" style="background:#9f7aea"></i>Azure AI service / model call</span>
+    <span><i class="swatch" style="background:#48bb78"></i>Outputs</span>
+    <span><i class="swatch" style="background:#a0aec0"></i>Dashed = optional scoring or retry path</span>
+  </div>
+</section>
+
+<!-- ============================= PIPELINE ============================= -->
+<section class="section">
+  <h2 class="section-title">3. Processing pipeline and latency boundaries</h2>
+  <p class="section-lead">
+    Five measured stages and two network round trips: the streaming transcription that runs with
+    the call, and a single Foundry request that returns redaction and summarization together.
+    The regex scan and the two redaction stages are local and in-process, and each one is timed
+    on its own rather than folded into the model call.
+  </p>
+
+  <div class="diagram">
+  <svg viewBox="0 0 1160 500" role="img" aria-label="Architecture 2 processing pipeline">
+    <defs>
+      <marker id="a2p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#718096"/>
+      </marker>
+    </defs>
+
+    <rect x="20" y="60" width="215" height="120" rx="12" fill="#9f7aea"/>
+    <text class="b" x="38" y="88">1 &middot; stt</text>
+    <text class="s" x="38" y="108">MAI-Transcribe-1.5 real-time</text>
+    <text class="s" x="38" y="124">utterance micro-batch mode</text>
+    <text class="s" x="38" y="140">2 channel sessions, 113 commits</text>
+    <text class="s" x="38" y="156">112 turns, 3.34% WER</text>
+    <text class="s" x="38" y="172">mean lag 0.83s / p95 1.02s</text>
+
+    <rect x="270" y="40" width="230" height="88" rx="12" fill="#ed8936"/>
+    <text class="b" x="288" y="66">2 &middot; regex_detection</text>
+    <text class="s" x="288" y="86">6 deterministic patterns</text>
+    <text class="s" x="288" y="102">local, in-process, advisory</text>
+    <text class="s" x="288" y="118">reports candidate_count</text>
+
+    <rect x="270" y="146" width="230" height="122" rx="12" fill="#9f7aea"/>
+    <text class="b" x="288" y="172">3 &middot; llm_api_call</text>
+    <text class="s" x="288" y="192">one DeepSeek chat completion</text>
+    <text class="s" x="288" y="208">6,906 in / 6,743 out tokens</text>
+    <text class="s" x="288" y="224">strict schema, up to 2 attempts</text>
+    <text class="s" x="288" y="240">combined_pii_and_summary: true</text>
+    <text class="s" x="288" y="256">entities + summary in one reply</text>
+
+    <rect x="535" y="90" width="215" height="128" rx="12" fill="#dd6b20"/>
+    <text class="b" x="553" y="116">4 &middot; transcript_redaction</text>
+    <text class="s" x="553" y="136">placeholders aligned to source</text>
+    <text class="s" x="553" y="152">typed spans reconstructed</text>
+    <text class="s" x="553" y="168">spans applied deterministically</text>
+    <text class="s" x="553" y="184">source conversation asserted</text>
+    <text class="s" x="553" y="200">unmutated</text>
+
+    <rect x="785" y="90" width="180" height="128" rx="12" fill="#ed8936"/>
+    <text class="b" x="803" y="116">5 &middot; summary_</text>
+    <text class="b" x="803" y="134">sanitization</text>
+    <text class="s" x="803" y="154">defence in depth</text>
+    <text class="s" x="803" y="170">literal values removed</text>
+    <text class="s" x="803" y="186">placeholder format</text>
+    <text class="s" x="803" y="202">normalized</text>
+
+    <rect x="1000" y="90" width="140" height="128" rx="12" fill="#48bb78"/>
+    <text class="b" x="1018" y="116">Result</text>
+    <text class="s" x="1018" y="136">schema 1.0 with</text>
+    <text class="s" x="1018" y="152">stage timings and</text>
+    <text class="s" x="1018" y="168">a latency block,</text>
+    <text class="s" x="1018" y="184">identical shape to</text>
+    <text class="s" x="1018" y="200">every architecture</text>
+
+    <path d="M235,120 L252,120 L252,84 L267,84" stroke="#718096" stroke-width="2.5" fill="none" marker-end="url(#a2p)"/>
+    <path d="M235,120 L252,120 L252,190 L267,190" stroke="#718096" stroke-width="2.5" fill="none" marker-end="url(#a2p)"/>
+    <path d="M385,128 L385,143" stroke="#718096" stroke-width="2.5" marker-end="url(#a2p)"/>
+    <path d="M500,207 L518,207 L518,154 L532,154" stroke="#718096" stroke-width="2.5" fill="none" marker-end="url(#a2p)"/>
+    <path d="M750,154 L782,154" stroke="#718096" stroke-width="2.5" marker-end="url(#a2p)"/>
+    <path d="M965,154 L997,154" stroke="#718096" stroke-width="2.5" marker-end="url(#a2p)"/>
+
+    <text class="k" x="20" y="300">Latency boundaries (504.168s stereo benchmark call)</text>
+    <rect x="20" y="316" width="860" height="26" rx="6" fill="#e9d8fd"/>
+    <text class="m" x="34" y="334">stt &mdash; audio streamed at 1&times;, each utterance transcribed ~0.8s after it ends</text>
+    <rect x="880" y="316" width="30" height="26" rx="6" fill="#fbd38d"/>
+    <text class="m" x="884" y="334">rgx</text>
+    <rect x="910" y="316" width="190" height="26" rx="6" fill="#d6bcfa"/>
+    <text class="m" x="924" y="334">llm_api_call</text>
+    <rect x="1100" y="316" width="40" height="26" rx="6" fill="#fbd38d"/>
+    <text class="m" x="1106" y="334">redact</text>
+
+    <path d="M20,352 L20,366 M880,352 L880,366 M1140,352 L1140,366" stroke="#a0aec0" stroke-width="1.5"/>
+    <text class="m" x="20"  y="382">T0 &mdash; call start</text>
+    <text class="m" x="790" y="382">504.4s &mdash; transcript ready</text>
+    <text class="m" x="1010" y="382">safe output</text>
+    <text class="m" x="20" y="402">latency.stt_seconds ends here &rarr; latency.downstream_seconds covers stages 2 to 5; the two sum to latency.end_to_end_seconds</text>
+
+    <rect x="20" y="416" width="1120" height="72" rx="10" fill="#f0fff4" stroke="#9ae6b4"/>
+    <text class="k" x="38" y="438">Why one model call matters</text>
+    <text class="m" x="38" y="458">Redaction and summarization share a single prompt, a single network round trip, and a single token bill, reported as one llm_api_call stage with</text>
+    <text class="m" x="38" y="476">combined_pii_and_summary metadata. A schema violation costs one extra attempt, and both attempts' tokens are counted so cost stays honest.</text>
+  </svg>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Stage</th><th>Provider / model</th><th>Endpoint or code path</th><th>Reported metrics</th><th>Latency boundary</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>stt</code></td>
+        <td>Azure AI Speech &mdash; MAI-Transcribe-1.5 through Voice Live</td>
+        <td><code>data/stt.py:run_mai_realtime</code> &rarr; one <code>wss://.../voice-live/realtime</code> session per channel</td>
+        <td>wall seconds, time to full transcript, finalization lag distribution, segments, utterances committed, channel sessions, WER per participant</td>
+        <td>Overlaps the call; last transcript arrives ~1s after the final commit</td>
+      </tr>
+      <tr>
+        <td><code>regex_detection</code></td>
+        <td>local &mdash; deterministic PII candidates</td>
+        <td><code>backend/arch2/adapter.py:detect_regex_hints</code></td>
+        <td>candidate count</td>
+        <td>First downstream stage; sub-millisecond, in-process</td>
+      </tr>
+      <tr>
+        <td><code>llm_api_call</code></td>
+        <td>Azure AI Foundry &mdash; DeepSeek deployment</td>
+        <td><code>POST {AZURE_FOUNDRY_ENDPOINT}/openai/deployments/{deployment}/chat/completions</code> (route shape auto-detected from the configured endpoint)</td>
+        <td><code>combined_pii_and_summary: true</code>, entity count, attempts, input tokens, output tokens, total tokens</td>
+        <td>The only downstream network round trip; dominates <code>downstream_seconds</code></td>
+      </tr>
+      <tr>
+        <td><code>transcript_redaction</code></td>
+        <td>local &mdash; typed entity replacement</td>
+        <td><code>backend/redaction.py:apply_entities</code> over entities derived from the model response</td>
+        <td>entity count</td>
+        <td>In-process, sub-millisecond</td>
+      </tr>
+      <tr>
+        <td><code>summary_sanitization</code></td>
+        <td>local &mdash; deterministic literal replacement</td>
+        <td><code>backend/redaction.py:sanitize_summary</code></td>
+        <td>replacement count</td>
+        <td>In-process, sub-millisecond</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note ok">
+    <b>Latency contract.</b> Every successful result carries a <code>latency</code> block with
+    <code>stt_seconds</code> (time to a full transcript), <code>downstream_seconds</code> (measured
+    once around the regex scan, the model call, and the two local redaction stages), and
+    <code>end_to_end_seconds</code>. A failed architecture reports <code>latency: null</code>.
+    Downstream work is submitted the moment this architecture's own STT result is finalized, so it
+    never waits for the other two engines. The frontend renders the end-to-end table plus a
+    per-stage breakdown.
+  </div>
+</section>
+
+<!-- ============================= GUARDRAILS ============================= -->
+<section class="section">
+  <h2 class="section-title">4. How model output is constrained</h2>
+  <p class="section-lead">
+    The model proposes; deterministic code disposes. Nothing the model writes reaches the
+    redacted transcript directly.
+  </p>
+
+  <div class="grid-3">
+    <div class="card proc">
+      <h3>Before the call &mdash; regex hints</h3>
+      <ul>
+        <li>Six patterns scanned per turn: email, phone number, SSN, credit card, IP address, date of birth</li>
+        <li>Each hint carries category, turn id, offset, length, and the matched text</li>
+        <li>Hints are passed inside the user message as candidates, never applied as redactions</li>
+        <li>The model still makes the final PII decision, including for categories no regex covers</li>
+      </ul>
+    </div>
+    <div class="card ai">
+      <h3>During the call &mdash; schema and prompt</h3>
+      <ul>
+        <li>System message is the repository prompt file, used byte for byte</li>
+        <li>Response format is a strict JSON schema with exactly two properties: <code>summary</code> and <code>conversation</code></li>
+        <li>Every turn must round-trip its id, participant, channel, offset, and duration</li>
+        <li>Temperature is pinned to 0</li>
+        <li>A malformed or contract-violating response is retried up to the configured attempt limit; tokens from all attempts are billed and counted</li>
+      </ul>
+    </div>
+    <div class="card ok">
+      <h3>After the call &mdash; reconstruction</h3>
+      <ul>
+        <li>Each <code>[CATEGORY]</code> placeholder is aligned back against the original turn text to recover the exact removed span</li>
+        <li>Failure to align is an error, not a silent pass</li>
+        <li>Recovered spans are re-applied to the untouched source turns, so the redacted transcript is derived from the original audio's words</li>
+        <li>The source conversation is asserted unmutated after processing</li>
+        <li>The summary is scrubbed of every recovered literal value, case-insensitively</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note warn">
+    <b>Residual risk worth stating.</b> Recall depends on the model: an entity the model never
+    marks is never recovered as a span, so it is neither redacted in the transcript nor scrubbed
+    from the summary. That is exactly what the PII leakage rate and recall metrics are there to
+    expose, and it is why annotated ground truth is a first-class upload.
+  </div>
+</section>
+
+<!-- ============================= LAYERS ============================= -->
+<section class="section">
+  <h2 class="section-title">5. Layered system architecture</h2>
+
+  <div class="layer">
+    <div class="layer-name" style="background:linear-gradient(135deg,#4299e1,#2b6cb0)">Client
+      <small>Bun-served TypeScript UI, port 3000</small></div>
+    <div class="layer-body">
+      <div class="chip"><b>Upload form</b><span>audio, reference transcript, PII annotations</span></div>
+      <div class="chip"><b>Run + poll</b><span>per-architecture progress states</span></div>
+      <div class="chip"><b>Latency tables</b><span>end-to-end, STT ready, downstream, and per-stage seconds</span></div>
+      <div class="chip"><b>Token cost view</b><span>DeepSeek input and output priced separately</span></div>
+      <div class="chip"><b>Same-origin proxy</b><span>/api/* forwarded to the backend</span></div>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="layer-name" style="background:linear-gradient(135deg,#ed8936,#c05621)">API &amp; orchestration
+      <small>FastAPI, port 8000</small></div>
+    <div class="layer-body">
+      <div class="chip"><b>Uploads</b><span>spooled to disk, channel map stored with the recording</span></div>
+      <div class="chip"><b>Job registry</b><span>queued / running / succeeded / failed</span></div>
+      <div class="chip"><b>Thread pools</b><span>2 concurrent jobs; each architecture starts on its own STT result</span></div>
+      <div class="chip"><b>Per-engine handoff</b><span>run_benchmark emits each engine result as it lands</span></div>
+      <div class="chip"><b>Failure isolation</b><span>a Foundry failure never sinks the other architectures</span></div>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="layer-name" style="background:linear-gradient(135deg,#9f7aea,#6b46c1)">Benchmark core
+      <small>single shared implementation</small></div>
+    <div class="layer-body">
+      <div class="chip"><b>run_benchmark()</b><span>one entry point for CLI and API, with a per-engine result callback</span></div>
+      <div class="chip"><b>Local VAD</b><span>drives both the commits here and the requests in Architecture 3</span></div>
+      <div class="chip"><b>DeepSeek processor</b><span>shared verbatim with Architecture 3</span></div>
+      <div class="chip"><b>Deterministic redaction</b><span>shared with the managed-service path</span></div>
+      <div class="chip"><b>Scoring</b><span>WER, per-participant WER, PII precision/recall/F1</span></div>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="layer-name" style="background:linear-gradient(135deg,#805ad5,#553c9a)">Azure services
+      <small>data-plane, Entra ID only</small></div>
+    <div class="layer-body">
+      <div class="chip"><b>Voice Live realtime</b><span>outbound WebSocket, MAI transcription model</span></div>
+      <div class="chip"><b>Microsoft Foundry</b><span>DeepSeek deployment, Global Standard SKU</span></div>
+      <div class="chip"><b>Token scope</b><span>https://cognitiveservices.azure.com/.default</span></div>
+      <div class="chip"><b>No Azure AI Language</b><span>this architecture never calls it</span></div>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="layer-name" style="background:linear-gradient(135deg,#48bb78,#276749)">Persistence &amp; output
+      <small>filesystem, no database</small></div>
+    <div class="layer-body">
+      <div class="chip"><b>Upload directory</b><span>normalized audio, transcript, annotations, metadata</span></div>
+      <div class="chip"><b>benchmark.json</b><span>full run report written beside the upload</span></div>
+      <div class="chip"><b>Cached comparison</b><span>checked-in results served without billable calls</span></div>
+      <div class="chip"><b>Result contract</b><span>identical shape across all architectures</span></div>
+      <div class="chip"><b>Latency block</b><span>stt / downstream / end-to-end seconds, or null on failure</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= FEATURES ============================= -->
+<section class="section">
+  <h2 class="section-title">6. Features and non-functional requirements</h2>
+  <div class="grid-2">
+    <div class="card data">
+      <h3>Functional</h3>
+      <ul>
+        <li>Per-channel streaming transcription with locally controlled commit boundaries</li>
+        <li>Finer turn segmentation than the classic recognizer &mdash; 112 turns vs 85</li>
+        <li>Single-call PII redaction plus issue-focused summarization</li>
+        <li>Typed placeholder redaction of conversation and summary</li>
+        <li>Optional WER scoring and optional PII precision / recall / F1 scoring</li>
+        <li>Full token accounting for cost comparison, including retried attempts</li>
+      </ul>
+    </div>
+    <div class="card ok">
+      <h3>Non-functional</h3>
+      <ul>
+        <li><b>Asynchronous</b> &mdash; streaming runs at 1&times;, so runs are submitted and polled</li>
+        <li><b>Early handoff</b> &mdash; downstream work is submitted as soon as this architecture's own STT result lands, not after all three engines</li>
+        <li><b>Resilient</b> &mdash; per-channel transcription errors and Foundry failures are isolated</li>
+        <li><b>Deterministic output</b> &mdash; temperature 0 plus schema-strict responses</li>
+        <li><b>Verifiable</b> &mdash; every model claim is re-derived from the source text</li>
+        <li><b>No secrets</b> &mdash; Entra ID token per run, no keys in the repository</li>
+        <li><b>Portable prompt</b> &mdash; the prompt is runtime configuration copied into the container, not code</li>
+      </ul>
+    </div>
+    <div class="card ai">
+      <h3>Measured position in the benchmark</h3>
+      <ul>
+        <li>Accuracy: <b>1st of 3</b> &mdash; 3.34% WER, roughly half the classic recognizer's error rate</li>
+        <li>Latency to transcript: 504.4s on a 504.2s call &mdash; effectively real time, reported as <code>latency.stt_seconds</code></li>
+        <li>Downstream: one model call plus three local stages, summed into <code>latency.downstream_seconds</code></li>
+        <li>Cost: <b>1st of 3</b> &mdash; $0.014834 discounted per call, $1,483.44 per 100,000 calls</li>
+        <li>Per-participant balance: 3.14% REP / 3.82% CUSTOMER, the tightest spread of the three</li>
+      </ul>
+    </div>
+    <div class="card proc">
+      <h3>Cost model inputs</h3>
+      <ul>
+        <li>Audio hours are multiplied by channel count because each channel is submitted independently: 0.280093 hours for the benchmark call</li>
+        <li>MAI transcription is priced per submitted audio hour with the 90% Speech discount applied</li>
+        <li>DeepSeek input and output tokens are priced separately with <b>no discount</b></li>
+        <li>No cached input tokens were reported, so the cached rate contributes nothing</li>
+        <li>Totals exclude hosting, storage, egress, and any separate Voice Live host-model charge</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= DEPLOYMENT ============================= -->
+<section class="section">
+  <h2 class="section-title">7. Deployment and runtime notes</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Local runtime</h3>
+      <ul>
+        <li><code>docker compose up --build</code> starts the backend on port 8000</li>
+        <li><code>cd frontend &amp;&amp; bun install &amp;&amp; bun run dev</code> starts the UI on port 3000</li>
+        <li>The host <code>~/.azure</code> profile is mounted so the container can authenticate and refresh</li>
+        <li>The prompt file is copied into the backend image as runtime configuration</li>
+        <li><code>uv run python data/stt.py</code> exercises the STT stage alone from the CLI</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Configuration</h3>
+      <ul>
+        <li><code>AZURE_FOUNDRY_ENDPOINT</code> and <code>AZURE_FOUNDRY_DEPLOYMENT</code> select the model; the chat route shape is derived from the endpoint form</li>
+        <li><code>AZURE_FOUNDRY_API_VERSION</code> defaults to <code>2025-04-01-preview</code> and is omitted for endpoint styles that do not take it</li>
+        <li><code>AZURE_FOUNDRY_MAX_ATTEMPTS</code> defaults to 2</li>
+        <li><code>SYSTEM_PROMPT_PATH</code> points at the prompt file</li>
+        <li><code>AZURE_REQUEST_TIMEOUT_SECONDS</code> defaults to 300</li>
+      </ul>
+    </div>
+    <div class="card ok">
+      <h3>Identity and network</h3>
+      <ul>
+        <li>Key auth is disabled on the Speech resource and on the Foundry deployment; managed identity is the only path</li>
+        <li>In Container Apps, grant the identity <b>Cognitive Services Speech User</b> for Voice Live</li>
+        <li><b>Outbound WebSocket must be allowed</b> &mdash; a locked-down VNet breaks this architecture first</li>
+        <li>Keep egress open to <code>*.cognitiveservices.azure.com</code> and <code>*.services.ai.azure.com</code></li>
+        <li>Voice Live requires a host model parameter even for transcription-only use; that inference path may be gated separately in a tenant</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Provisioning</h3>
+      <ul>
+        <li>The checked-in Bicep creates the resource group, the Foundry resource, and the DeepSeek deployment on the Global Standard SKU with local key auth disabled</li>
+        <li>The deployment script asserts that the Azure CLI is installed and logged in first</li>
+        <li>Deployment outputs map directly onto the Foundry endpoint and deployment environment variables</li>
+        <li>The Speech resource used for Voice Live is referenced by configuration, not created here</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= CURRENT VS DESIRED ============================= -->
+<section class="section">
+  <h2 class="section-title">8. Current implementation vs the complete intended pipeline</h2>
+  <table>
+    <thead><tr><th>Aspect</th><th>Implemented today</th><th>Intended / complete pipeline</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Redaction and summarization</td>
+        <td>A single structured call, reported as one <code>llm_api_call</code> stage carrying <code>combined_pii_and_summary: true</code>; the local <code>transcript_redaction</code> and <code>summary_sanitization</code> stages are timed separately.</td>
+        <td>Unchanged &mdash; this is the intended shape. Splitting them would add a round trip and a second token bill for no contract benefit.</td>
+      </tr>
+      <tr>
+        <td>Entity confidence</td>
+        <td>Spans derived from placeholders carry no confidence score, unlike the Azure AI Language path.</td>
+        <td>Confidence would need to be requested in the schema and validated; scoring today relies on exact span agreement rather than thresholds.</td>
+      </tr>
+      <tr>
+        <td>Cached default comparison</td>
+        <td>The checked-in results file holds STT metrics and pricing usage only, so the UI reports PII accuracy as not scored for that historical run.</td>
+        <td>A live run with annotations attached produces the architecture block plus precision, recall, F1, category accuracy, alignment rate, and leakage rate.</td>
+      </tr>
+      <tr>
+        <td>Token lifecycle</td>
+        <td>One Entra token per run; the Voice Live socket is not reconnected mid-call.</td>
+        <td>Reconnect with a fresh token for calls that outlive the token, which matters for a long-lived service rather than a nine-minute benchmark.</td>
+      </tr>
+      <tr>
+        <td>Architecture 4</td>
+        <td>Not implemented and not part of the three-way benchmark.</td>
+        <td>A future Azure Communication Services option combining call audio, STT, and PII handling.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  Architecture 2 of 3 &mdash; generated from the repository source: the benchmark core, the
+  shared DeepSeek processor, the regex hint detector, the deterministic redaction module, the
+  FastAPI service, the Bun frontend, the Foundry Bicep, and the checked-in stereo benchmark
+  results (504.168s call, 989-word reference, 113 VAD utterances). Companion diagrams:
+  <a href="architecture-1-azure-language.html">architecture-1-azure-language.html</a> and
+  <a href="architecture-3-mai-batch-deepseek.html">architecture-3-mai-batch-deepseek.html</a>.
+</footer>
+
+</div>
+</body>
+</html>

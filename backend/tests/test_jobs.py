@@ -1,3 +1,4 @@
+import json
 import tempfile
 import threading
 import unittest
@@ -179,8 +180,89 @@ class JobIntegrationTests(unittest.TestCase):
             score.assert_called_once_with(report, "Hello.", [])
             self.assertEqual(jobs.get("job")["result"]["pii_accuracy"], scores)
 
+    def test_run_starts_downstream_when_each_engine_finishes(self) -> None:
+        report = {"engines": {key: source_entry(key) for key in ENGINE_KEYS}}
+
+        def benchmark(*args, on_engine_result=None, **kwargs):
+            self.assertIsNotNone(on_engine_result)
+            for key, entry in report["engines"].items():
+                on_engine_result(key, entry)
+            return report
+
+        def architecture(architecture_id, source, on_progress=None):
+            return {
+                "architecture_id": architecture_id,
+                "status": "succeeded",
+                "source_label": source["label"],
+            }
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            jobs._jobs["job"] = {
+                "id": "job",
+                "upload_id": "upload",
+                "status": "queued",
+                "engines": {key: "pending" for key in ENGINE_KEYS},
+                "architectures": {
+                    architecture_id: "pending"
+                    for architecture_id in jobs.ARCHITECTURE_FACTORIES
+                },
+            }
+            with (
+                patch.object(jobs.uploads, "load", return_value={"id": "upload", "channel_map": {}}),
+                patch.object(jobs.uploads, "upload_dir", return_value=output),
+                patch.object(jobs.uploads, "pii_ground_truth_path", return_value=None),
+                patch.object(jobs.stt, "run_benchmark", side_effect=benchmark),
+                patch.object(jobs, "run_architecture", side_effect=architecture) as downstream,
+                patch.object(jobs, "run_architectures") as fallback,
+            ):
+                jobs._run("job", Path("audio.wav"), None)
+
+        self.assertEqual(downstream.call_count, 3)
+        fallback.assert_not_called()
+        results = jobs.get("job")["result"]["architectures"]
+        self.assertEqual(list(results), list(jobs.ARCHITECTURE_FACTORIES))
+        for architecture_id, result in results.items():
+            factory = jobs.ARCHITECTURE_FACTORIES[architecture_id]
+            self.assertEqual(result["source_label"], factory.stt_engine_key)
+
+    def test_cached_default_prefers_latest_persisted_default_run(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            persisted_dir = root / "mock-call"
+            persisted_dir.mkdir()
+            persisted = {"architectures": {"architecture-1": {"latency": {}}}}
+            checked_in = {"engines": {"historical": {}}}
+            (persisted_dir / jobs.RESULT_NAME).write_text(
+                json.dumps(persisted), encoding="utf-8"
+            )
+            checked_in_path = root / "checked-in.json"
+            checked_in_path.write_text(json.dumps(checked_in), encoding="utf-8")
+
+            with (
+                patch.object(jobs.uploads, "upload_dir", return_value=persisted_dir),
+                patch.object(jobs, "CACHED_DEFAULT_RESULT", checked_in_path),
+            ):
+                self.assertEqual(jobs.cached_default(), persisted)
+
 
 class ArchitectureApiTests(unittest.TestCase):
+    def test_architecture_diagram_returns_the_whitelisted_html(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "architecture.html"
+            path.write_text("<html></html>", encoding="utf-8")
+            with patch.dict(
+                main.ARCHITECTURE_DIAGRAMS,
+                {"architecture-test": path},
+                clear=True,
+            ):
+                response = main.get_architecture_diagram("architecture-test")
+                self.assertEqual(Path(response.path), path)
+                self.assertEqual(response.media_type, "text/html")
+
+                with self.assertRaisesRegex(Exception, "No such architecture diagram"):
+                    main.get_architecture_diagram("architecture-missing")
+
     def test_architecture_result_supports_new_and_historical_reports(self) -> None:
         result = {"architecture_id": "architecture-1", "status": "succeeded"}
         with patch.object(

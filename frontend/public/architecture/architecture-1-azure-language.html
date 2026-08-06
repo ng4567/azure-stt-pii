@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture 1 - Azure Speech + Azure Language | Call Processing Benchmark</title>
+<style>
+  :root{
+    --data:#4299e1; --proc:#ed8936; --ai:#9f7aea; --ok:#48bb78; --warn:#dd6b20;
+    --ink:#2d3748; --muted:#718096; --line:#e2e8f0; --accent:#4299e1;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+    color:var(--ink);padding:2rem 1rem;min-height:100vh;line-height:1.55;
+  }
+  .container{max-width:1400px;margin:0 auto;background:#fff;border-radius:20px;
+    box-shadow:0 20px 60px rgba(0,0,0,.3);padding:2.5rem}
+  header{border-bottom:4px solid var(--accent);padding-bottom:1.25rem;margin-bottom:1.5rem}
+  h1{font-size:2.1rem;letter-spacing:-.02em}
+  .subtitle{color:var(--muted);font-size:1.05rem;margin-top:.4rem}
+  .badges{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem}
+  .badge{background:#edf2f7;color:#4a5568;border:1px solid var(--line);border-radius:999px;
+    padding:.25rem .75rem;font-size:.78rem;font-weight:600}
+  .badge.data{background:#ebf8ff;color:#2b6cb0;border-color:#bee3f8}
+  .badge.ai{background:#faf5ff;color:#6b46c1;border-color:#e9d8fd}
+  .badge.ok{background:#f0fff4;color:#276749;border-color:#c6f6d5}
+  .badge.proc{background:#fffaf0;color:#b7791f;border-color:#fbd38d}
+  a{color:#2b6cb0}
+  footer a{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.95em}
+  .section{margin:2.5rem 0}
+  .section-title{font-size:1.4rem;margin-bottom:.4rem;padding-bottom:.5rem;
+    border-bottom:3px solid var(--accent)}
+  .section-lead{color:var(--muted);margin:.6rem 0 1.2rem;max-width:80ch}
+  .metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem}
+  .metric-card{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:12px;
+    padding:1.1rem;text-align:center}
+  .metric-value{font-size:1.7rem;font-weight:700}
+  .metric-label{font-size:.8rem;opacity:.9;margin-top:.25rem}
+  .grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.25rem}
+  .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem}
+  .card{border:2px solid var(--line);border-radius:12px;padding:1.15rem;background:#fff}
+  .card h3{font-size:1.05rem;color:#4a5568;margin-bottom:.6rem}
+  .card ul{list-style:none}
+  .card li{padding-left:1.1rem;position:relative;margin:.3rem 0;font-size:.92rem}
+  .card li:before{content:"▸";position:absolute;left:0;color:var(--accent);font-weight:700}
+  .card.data{border-color:#bee3f8} .card.data h3{color:#2b6cb0}
+  .card.proc{border-color:#fbd38d} .card.proc h3{color:#b7791f}
+  .card.ai{border-color:#e9d8fd} .card.ai h3{color:#6b46c1}
+  .card.ok{border-color:#c6f6d5} .card.ok h3{color:#276749}
+  .diagram{overflow-x:auto;background:#f7fafc;border:1px solid var(--line);border-radius:14px;
+    padding:1rem;margin:1rem 0}
+  svg{display:block;width:100%;height:auto;min-width:760px}
+  svg .b{fill:#fff;font-size:13px;font-weight:700}
+  svg .s{fill:#fff;font-size:10.5px;opacity:.92}
+  svg .k{fill:#2d3748;font-size:12px;font-weight:700}
+  svg .m{fill:#4a5568;font-size:10.5px}
+  svg .t{fill:#718096;font-size:10px;font-style:italic}
+  .legend{display:flex;flex-wrap:wrap;gap:1rem;margin-top:.75rem;font-size:.82rem;color:#4a5568}
+  .legend span{display:flex;align-items:center;gap:.4rem}
+  .swatch{width:14px;height:14px;border-radius:4px;display:inline-block}
+  table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.88rem}
+  th,td{border:1px solid var(--line);padding:.55rem .7rem;text-align:left;vertical-align:top}
+  th{background:#f7fafc;font-size:.8rem;text-transform:uppercase;letter-spacing:.03em;color:#4a5568}
+  td code,li code,p code{background:#edf2f7;border-radius:4px;padding:.05rem .3rem;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em}
+  .note{border-left:5px solid var(--accent);background:#ebf8ff;border-radius:0 10px 10px 0;
+    padding:.9rem 1.1rem;margin:1rem 0;font-size:.92rem}
+  .note.warn{border-color:var(--warn);background:#fffaf0}
+  .note.ok{border-color:var(--ok);background:#f0fff4}
+  .layer{display:grid;grid-template-columns:210px 1fr;gap:1rem;align-items:stretch;
+    border:2px solid var(--line);border-radius:12px;margin:.85rem 0;overflow:hidden}
+  .layer-name{padding:1rem;font-weight:700;color:#fff;display:flex;flex-direction:column;
+    justify-content:center;font-size:.95rem}
+  .layer-name small{font-weight:500;opacity:.9;font-size:.75rem;margin-top:.2rem}
+  .layer-body{padding:.9rem;display:flex;flex-wrap:wrap;gap:.6rem}
+  .chip{background:#f7fafc;border:1px solid var(--line);border-radius:8px;padding:.45rem .7rem;
+    font-size:.82rem}
+  .chip b{display:block;font-size:.85rem}
+  .chip span{color:var(--muted);font-size:.75rem}
+  footer{margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--line);
+    color:var(--muted);font-size:.83rem}
+  @media (max-width:768px){
+    body{padding:1rem .5rem}.container{padding:1.25rem;border-radius:14px}
+    h1{font-size:1.5rem}.layer{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Architecture 1 &mdash; Azure Speech + Azure Language</h1>
+  <p class="subtitle">
+    Real-time Azure Speech transcription, Conversation PII redaction, and conversational
+    summarization &mdash; the fully managed, first-party path in the call-processing benchmark.
+  </p>
+  <div class="badges">
+    <span class="badge data">Azure AI Speech (real-time SDK)</span>
+    <span class="badge ai">Azure AI Language &mdash; Conversation PII</span>
+    <span class="badge ai">Azure AI Language &mdash; Conversational Summarization</span>
+    <span class="badge">No LLM, no regex</span>
+    <span class="badge proc">Concurrent endpoint branches</span>
+    <span class="badge ok">Entra ID / DefaultAzureCredential</span>
+    <span class="badge">Result schema v1.0 with latency block</span>
+  </div>
+</header>
+
+<!-- ============================= BUSINESS CONTEXT ============================= -->
+<section class="section">
+  <h2 class="section-title">1. Business context</h2>
+  <p class="section-lead">
+    This repository exists to answer one procurement question: what does it cost, in dollars and
+    in seconds, to turn a recorded support call into a redacted transcript and a safe summary?
+    Architecture 1 is the managed-service baseline that the two DeepSeek architectures are
+    measured against.
+  </p>
+
+  <div class="metric-grid">
+    <div class="metric-card"><div class="metric-value">94.64%</div><div class="metric-label">STT accuracy (5.36% WER)</div></div>
+    <div class="metric-card"><div class="metric-value">0.92s</div><div class="metric-label">p95 finalization lag</div></div>
+    <div class="metric-card"><div class="metric-value">504.3s</div><div class="metric-label">Transcript ready (504.2s call)</div></div>
+    <div class="metric-card"><div class="metric-value">$0.031069</div><div class="metric-label">Discounted cost / call</div></div>
+    <div class="metric-card"><div class="metric-value">85</div><div class="metric-label">Speaker turns emitted</div></div>
+    <div class="metric-card"><div class="metric-value">6 + 6</div><div class="metric-label">PII / summary text records</div></div>
+  </div>
+
+  <div class="grid-3" style="margin-top:1.25rem">
+    <div class="card data">
+      <h3>Objectives</h3>
+      <ul>
+        <li>Establish a first-party, fully managed reference pipeline</li>
+        <li>Keep PII handling inside Azure AI Language, with no model prompt to govern</li>
+        <li>Produce the same versioned output contract as every other architecture</li>
+        <li>Make cost and latency directly comparable to the LLM-based options</li>
+      </ul>
+    </div>
+    <div class="card data">
+      <h3>Users &amp; stakeholders</h3>
+      <ul>
+        <li>Solution architects choosing between managed services and a hosted LLM</li>
+        <li>Compliance reviewers who need a named, certified PII service</li>
+        <li>Engineers running the benchmark from the browser UI</li>
+        <li>Finance owners applying 90% Speech / 70% Language discounts</li>
+      </ul>
+    </div>
+    <div class="card data">
+      <h3>Value &amp; measured outcome</h3>
+      <ul>
+        <li>Highest per-call price of the three: <b>$0.031069</b> discounted</li>
+        <li>Highest word error rate of the three: <b>5.36%</b></li>
+        <li>Weakest on the CUSTOMER channel: 7.42% WER vs 3.69% for REP</li>
+        <li>Strongest governance story: no prompt engineering in the PII path</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Decision framing.</b> Architecture 1 is roughly <b>2.1&times; the cost per call</b> of
+    Architecture 2 and has ~60% more word errors, but it is the only implemented option whose
+    redaction decision is made by a dedicated Azure AI Language PII model rather than a
+    general-purpose LLM under a prompt.
+  </div>
+</section>
+
+<!-- ============================= DATA FLOW ============================= -->
+<section class="section">
+  <h2 class="section-title">2. End-to-end data flow</h2>
+  <p class="section-lead">
+    Sources on the left, deterministic local processing in orange, Azure AI calls in purple,
+    and the versioned outputs on the right. Both Azure AI Language calls receive the
+    <b>original, unredacted</b> transcript &mdash; this is the client-confirmed production flow
+    &mdash; and they are <b>issued concurrently</b> on a two-worker pool, so their endpoint times
+    overlap instead of accumulating.
+  </p>
+
+  <div class="diagram">
+  <svg viewBox="0 0 1160 700" role="img" aria-label="Architecture 1 end-to-end data flow">
+    <defs>
+      <marker id="a1arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#718096"/>
+      </marker>
+      <marker id="a1arrowdim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#a0aec0"/>
+      </marker>
+    </defs>
+
+    <!-- column headers -->
+    <text class="k" x="20"  y="24">Sources</text>
+    <text class="k" x="235" y="24">Intake (local)</text>
+    <text class="k" x="455" y="24">STT stage</text>
+    <text class="k" x="700" y="24">Azure AI Language</text>
+    <text class="k" x="960" y="24">Outputs</text>
+
+    <!-- SOURCES -->
+    <rect x="20" y="120" width="180" height="76" rx="10" fill="#4299e1"/>
+    <text class="b" x="36" y="148">Call recording</text>
+    <text class="s" x="36" y="166">any ffmpeg-readable format</text>
+    <text class="s" x="36" y="182">stereo: ch0 REP / ch1 CUSTOMER</text>
+
+    <rect x="20" y="212" width="180" height="66" rx="10" fill="#63b3ed"/>
+    <text class="b" x="36" y="238">Reference transcript</text>
+    <text class="s" x="36" y="256">optional &mdash; enables WER scoring</text>
+
+    <rect x="20" y="294" width="180" height="66" rx="10" fill="#90cdf4"/>
+    <text class="b" x="36" y="320" fill="#1a365d">PII ground truth</text>
+    <text class="s" x="36" y="338" fill="#2a4365">optional &mdash; enables P/R/F1</text>
+
+    <rect x="20" y="392" width="180" height="60" rx="10" fill="#2c5282"/>
+    <text class="b" x="36" y="416">Built-in mock call</text>
+    <text class="s" x="36" y="434">seeded, non-deletable upload</text>
+
+    <!-- INTAKE -->
+    <rect x="235" y="120" width="170" height="92" rx="10" fill="#ed8936"/>
+    <text class="b" x="250" y="146">Upload intake</text>
+    <text class="s" x="250" y="164">FastAPI streams to disk</text>
+    <text class="s" x="250" y="180">ffmpeg &rarr; 16-bit PCM,</text>
+    <text class="s" x="250" y="196">compatible WAV passed through</text>
+
+    <rect x="235" y="230" width="170" height="80" rx="10" fill="#dd6b20"/>
+    <text class="b" x="250" y="256">Channel split</text>
+    <text class="s" x="250" y="274">one mono PCM buffer per</text>
+    <text class="s" x="250" y="290">channel; channel = speaker</text>
+
+    <rect x="235" y="330" width="170" height="76" rx="10" fill="#c05621"/>
+    <text class="b" x="250" y="356">Job queue</text>
+    <text class="s" x="250" y="374">background pool, pollable id,</text>
+    <text class="s" x="250" y="390">downstream starts per engine</text>
+
+    <!-- STT -->
+    <rect x="440" y="90" width="185" height="78" rx="10" fill="#9f7aea"/>
+    <text class="b" x="455" y="116">Speech recognizer ch0</text>
+    <text class="s" x="455" y="134">continuous recognition,</text>
+    <text class="s" x="455" y="150">streamed at 1&times; real time</text>
+
+    <rect x="440" y="184" width="185" height="78" rx="10" fill="#9f7aea"/>
+    <text class="b" x="455" y="210">Speech recognizer ch1</text>
+    <text class="s" x="455" y="228">detailed output + word</text>
+    <text class="s" x="455" y="244">level timestamps</text>
+
+    <rect x="440" y="292" width="185" height="96" rx="10" fill="#805ad5"/>
+    <text class="b" x="455" y="318">Merge &amp; canonicalize</text>
+    <text class="s" x="455" y="336">sort by 100 ns offset,</text>
+    <text class="s" x="455" y="352">stable turn ids, 1000-char</text>
+    <text class="s" x="455" y="368">item limit validated</text>
+    <text class="s" x="455" y="384">&rarr; canonical conversation</text>
+
+    <rect x="440" y="410" width="185" height="66" rx="10" fill="#ed8936"/>
+    <text class="b" x="455" y="436">Strip benchmark metadata</text>
+    <text class="s" x="455" y="454">channel / offset / duration</text>
+    <text class="s" x="455" y="470">removed for the API request</text>
+
+    <!-- AZURE LANGUAGE -->
+    <rect x="670" y="120" width="200" height="104" rx="10" fill="#9f7aea"/>
+    <text class="b" x="686" y="146">Conversation PII</text>
+    <text class="s" x="686" y="164">analyze-conversations job</text>
+    <text class="s" x="686" y="180">piiCategories: All</text>
+    <text class="s" x="686" y="196">redactionSource: text</text>
+    <text class="s" x="686" y="212">LRO polled to completion</text>
+
+    <rect x="670" y="256" width="200" height="104" rx="10" fill="#805ad5"/>
+    <text class="b" x="686" y="282">Conversational Summarization</text>
+    <text class="s" x="686" y="300">summaryAspects: issue,</text>
+    <text class="s" x="686" y="316">resolution</text>
+    <text class="s" x="686" y="332">REP&rarr;Agent, CUSTOMER&rarr;Customer</text>
+    <text class="s" x="686" y="348">projection for this call only</text>
+
+    <rect x="670" y="392" width="200" height="98" rx="10" fill="#ed8936"/>
+    <text class="b" x="686" y="418">Deterministic redaction</text>
+    <text class="s" x="686" y="436">transcript_redaction applies</text>
+    <text class="s" x="686" y="452">entity spans to the turns;</text>
+    <text class="s" x="686" y="468">summary_sanitization scrubs</text>
+    <text class="s" x="686" y="484">every detected literal value</text>
+
+    <!-- OUTPUTS -->
+    <rect x="930" y="96" width="205" height="72" rx="10" fill="#48bb78"/>
+    <text class="b" x="946" y="122">Redacted conversation</text>
+    <text class="s" x="946" y="140">turn-preserving + derived</text>
+    <text class="s" x="946" y="156">redacted flat transcript</text>
+
+    <rect x="930" y="188" width="205" height="66" rx="10" fill="#38a169"/>
+    <text class="b" x="946" y="214">Sanitized summary</text>
+    <text class="s" x="946" y="232">issue + resolution aspects</text>
+
+    <rect x="930" y="274" width="205" height="72" rx="10" fill="#2f855a"/>
+    <text class="b" x="946" y="300">Normalized PII entities</text>
+    <text class="s" x="946" y="318">category, turn id, offset,</text>
+    <text class="s" x="946" y="334">length, confidence</text>
+
+    <rect x="930" y="366" width="205" height="72" rx="10" fill="#276749"/>
+    <text class="b" x="946" y="392">Stage + latency metrics</text>
+    <text class="s" x="946" y="410">five stages, plus STT /</text>
+    <text class="s" x="946" y="426">downstream / end-to-end</text>
+
+    <rect x="930" y="458" width="205" height="66" rx="10" fill="#22543d"/>
+    <text class="b" x="946" y="484">Accuracy scores</text>
+    <text class="s" x="946" y="502">WER + PII precision/recall</text>
+
+    <!-- arrows: sources -> intake -->
+    <path d="M200,158 L232,158" stroke="#718096" stroke-width="2" marker-end="url(#a1arrow)"/>
+    <path d="M200,245 L232,245" stroke="#718096" stroke-width="2" marker-end="url(#a1arrow)"/>
+    <path d="M200,327 L215,327 L215,500 L905,500 L905,491" stroke="#a0aec0" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#a1arrowdim)"/>
+    <path d="M200,422 L218,422 L218,368 L232,368" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a1arrow)"/>
+
+    <!-- intake internal -->
+    <path d="M320,212 L320,228" stroke="#718096" stroke-width="2" marker-end="url(#a1arrow)"/>
+    <path d="M320,310 L320,328" stroke="#718096" stroke-width="2" marker-end="url(#a1arrow)"/>
+
+    <!-- intake -> stt -->
+    <path d="M405,262 L422,262 L422,129 L437,129" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a1arrow)"/>
+    <path d="M405,270 L422,270 L422,223 L437,223" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a1arrow)"/>
+
+    <!-- stt merge -->
+    <path d="M532,168 L532,290" stroke="#718096" stroke-width="2" marker-end="url(#a1arrow)"/>
+    <path d="M532,262 L532,290" stroke="#718096" stroke-width="2" marker-end="url(#a1arrow)"/>
+    <path d="M532,388 L532,408" stroke="#718096" stroke-width="2" marker-end="url(#a1arrow)"/>
+
+    <!-- to language services (two branches from the same unredacted transcript) -->
+    <path d="M625,443 L648,443 L648,172 L667,172" stroke="#718096" stroke-width="2.4" fill="none" marker-end="url(#a1arrow)"/>
+    <path d="M625,443 L648,443 L648,308 L667,308" stroke="#718096" stroke-width="2.4" fill="none" marker-end="url(#a1arrow)"/>
+    <text class="t" x="440" y="500">unredacted transcript feeds both calls, submitted concurrently</text>
+
+    <!-- language -> sanitizer -->
+    <path d="M770,224 L770,240 L640,240 L640,432 L667,432" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a1arrow)"/>
+    <text class="t" x="646" y="256">entities</text>
+    <path d="M770,360 L770,390" stroke="#718096" stroke-width="2" marker-end="url(#a1arrow)"/>
+    <text class="t" x="778" y="380">raw summary</text>
+
+    <!-- outputs -->
+    <path d="M870,420 L900,420 L900,132 L927,132" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a1arrow)"/>
+    <path d="M870,430 L900,430 L900,221 L927,221" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a1arrow)"/>
+    <path d="M870,440 L900,440 L900,310 L927,310" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a1arrow)"/>
+    <path d="M870,450 L900,450 L900,402 L927,402" stroke="#718096" stroke-width="2" fill="none" marker-end="url(#a1arrow)"/>
+    <path d="M905,500 L905,491 L927,491" stroke="#a0aec0" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#a1arrowdim)"/>
+
+    <!-- persistence -->
+    <rect x="235" y="560" width="900" height="80" rx="10" fill="#edf2f7" stroke="#cbd5e0"/>
+    <text class="k" x="255" y="586">Persistence &amp; delivery</text>
+    <text class="m" x="255" y="606">Result JSON written next to the upload, held in the in-memory job registry, and polled by the</text>
+    <text class="m" x="255" y="624">browser, which renders end-to-end, STT, downstream, and per-stage latency.</text>
+    <path d="M1032,524 L1032,558" stroke="#718096" stroke-width="2" marker-end="url(#a1arrow)"/>
+  </svg>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch" style="background:#4299e1"></i>Data / sources</span>
+    <span><i class="swatch" style="background:#ed8936"></i>Deterministic local processing</span>
+    <span><i class="swatch" style="background:#9f7aea"></i>Azure AI service call</span>
+    <span><i class="swatch" style="background:#48bb78"></i>Outputs</span>
+    <span><i class="swatch" style="background:#a0aec0"></i>Dashed = optional scoring path</span>
+  </div>
+
+  <div class="note warn">
+    <b>No regex in this architecture.</b> Deterministic pattern matching exists only in the
+    DeepSeek architectures, where it supplies candidate hints to the model. In Architecture 1
+    the PII decision is made entirely by Azure AI Language; the only local text manipulation is
+    applying the returned spans and scrubbing those literal values out of the generated summary.
+  </div>
+</section>
+
+<!-- ============================= PIPELINE ============================= -->
+<section class="section">
+<h2 class="section-title">3. Processing pipeline and latency boundaries</h2>
+  <p class="section-lead">
+    Five measured stages. Only the STT stage overlaps the call. Downstream begins the moment
+    this architecture's own transcript is ready, and the two Azure AI Language endpoints are
+    submitted together, so the downstream window is roughly the slower endpoint rather than the
+    sum of the two.
+  </p>
+
+  <div class="diagram">
+  <svg viewBox="0 0 1160 500" role="img" aria-label="Architecture 1 processing pipeline">
+    <defs>
+      <marker id="a1p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#718096"/>
+      </marker>
+    </defs>
+
+    <rect x="20" y="80" width="205" height="120" rx="12" fill="#9f7aea"/>
+    <text class="b" x="38" y="108">1 &middot; stt</text>
+    <text class="s" x="38" y="128">Azure Speech real-time</text>
+    <text class="s" x="38" y="144">2 concurrent channel sessions</text>
+    <text class="s" x="38" y="160">85 turns, 5.36% WER</text>
+    <text class="s" x="38" y="176">mean lag 0.76s / p95 0.92s</text>
+    <text class="s" x="38" y="192">&rarr; latency.stt_seconds</text>
+
+    <rect x="255" y="40" width="225" height="105" rx="12" fill="#9f7aea"/>
+    <text class="b" x="273" y="66">2 &middot; pii_endpoint</text>
+    <text class="s" x="273" y="86">Conversation PII (LRO)</text>
+    <text class="s" x="273" y="102">submit &rarr; poll &rarr; entities</text>
+    <text class="s" x="273" y="118">5,212 chars = 6 records</text>
+    <text class="s" x="273" y="134">spans verified against source</text>
+
+    <rect x="255" y="160" width="225" height="105" rx="12" fill="#805ad5"/>
+    <text class="b" x="273" y="186">3 &middot; summarizer_endpoint</text>
+    <text class="s" x="273" y="206">Conversational Summarization</text>
+    <text class="s" x="273" y="222">issue + resolution (LRO)</text>
+    <text class="s" x="273" y="238">5,212 in / 660 out chars</text>
+    <text class="s" x="273" y="254">unredacted input by design</text>
+
+    <rect x="245" y="20" width="245" height="262" rx="16" fill="none" stroke="#805ad5" stroke-width="2" stroke-dasharray="6 4"/>
+    <text class="k" x="245" y="298" fill="#553c9a">Submitted together on a 2-worker pool &mdash; these two times overlap</text>
+
+    <rect x="520" y="45" width="195" height="100" rx="12" fill="#ed8936"/>
+    <text class="b" x="538" y="71">4 &middot; transcript_redaction</text>
+    <text class="s" x="538" y="91">local span application</text>
+    <text class="s" x="538" y="107">entity spans &rarr; typed</text>
+    <text class="s" x="538" y="123">placeholders in every turn</text>
+    <text class="s" x="538" y="139">metric: entity_count</text>
+
+    <rect x="520" y="165" width="195" height="100" rx="12" fill="#dd6b20"/>
+    <text class="b" x="538" y="191">5 &middot; summary_sanitization</text>
+    <text class="s" x="538" y="211">parse + scrub the summary</text>
+    <text class="s" x="538" y="227">case-insensitive, word-</text>
+    <text class="s" x="538" y="243">boundary aware</text>
+    <text class="s" x="538" y="259">metric: replacement_count</text>
+
+    <rect x="755" y="105" width="200" height="105" rx="12" fill="#48bb78"/>
+    <text class="b" x="773" y="131">Result document</text>
+    <text class="s" x="773" y="151">schema_version 1.0</text>
+    <text class="s" x="773" y="167">source + redacted +</text>
+    <text class="s" x="773" y="183">summary + entities +</text>
+    <text class="s" x="773" y="199">stages + latency</text>
+
+    <rect x="985" y="105" width="155" height="105" rx="12" fill="#2f855a"/>
+    <text class="b" x="1001" y="131">latency block</text>
+    <text class="s" x="1001" y="151">stt_seconds</text>
+    <text class="s" x="1001" y="167">downstream_seconds</text>
+    <text class="s" x="1001" y="183">end_to_end_seconds</text>
+    <text class="s" x="1001" y="199">rendered by the UI</text>
+
+    <path d="M225,120 L240,120 L240,92 L252,92" stroke="#718096" stroke-width="2.5" fill="none" marker-end="url(#a1p)"/>
+    <path d="M225,150 L240,150 L240,212 L252,212" stroke="#718096" stroke-width="2.5" fill="none" marker-end="url(#a1p)"/>
+    <path d="M480,92 L500,92 L500,95 L517,95" stroke="#718096" stroke-width="2.5" fill="none" marker-end="url(#a1p)"/>
+    <text class="t" x="486" y="86">entities</text>
+    <path d="M480,212 L500,212 L500,215 L517,215" stroke="#718096" stroke-width="2.5" fill="none" marker-end="url(#a1p)"/>
+    <text class="t" x="484" y="206">raw summary</text>
+    <path d="M480,120 L505,120 L505,235 L517,235" stroke="#a0aec0" stroke-width="1.8" fill="none" stroke-dasharray="5 4" marker-end="url(#a1p)"/>
+    <text class="t" x="508" y="300">entities also drive the summary scrub</text>
+    <path d="M715,95 L735,95 L735,140 L752,140" stroke="#718096" stroke-width="2.5" fill="none" marker-end="url(#a1p)"/>
+    <path d="M715,215 L735,215 L735,175 L752,175" stroke="#718096" stroke-width="2.5" fill="none" marker-end="url(#a1p)"/>
+    <path d="M955,157 L982,157" stroke="#718096" stroke-width="2.5" marker-end="url(#a1p)"/>
+
+    <text class="k" x="20" y="345">Latency boundaries (504.168s stereo benchmark call)</text>
+    <rect x="20" y="362" width="820" height="26" rx="6" fill="#bee3f8"/>
+    <text class="m" x="34" y="380">Call in progress &mdash; transcription streams at 1&times; and finishes with it (latency.stt_seconds)</text>
+    <rect x="840" y="356" width="230" height="17" rx="5" fill="#e9d8fd"/>
+    <text class="m" x="852" y="369">Conversation PII job</text>
+    <rect x="840" y="377" width="200" height="17" rx="5" fill="#d6bcfa"/>
+    <text class="m" x="852" y="390">Summarizer job</text>
+    <rect x="1072" y="362" width="68" height="26" rx="6" fill="#fbd38d"/>
+    <text class="m" x="1082" y="380">redact</text>
+
+    <path d="M20,400 L20,414 M840,400 L840,414 M1140,400 L1140,414" stroke="#a0aec0" stroke-width="1.5"/>
+    <text class="m" x="20"  y="430">T0 &mdash; call start</text>
+    <text class="m" x="700" y="430">504.3s &mdash; transcript ready</text>
+    <text class="m" x="905" y="430">latency.downstream_seconds</text>
+
+    <rect x="20" y="444" width="1120" height="48" rx="10" fill="#f0fff4" stroke="#9ae6b4"/>
+    <text class="k" x="38" y="466">Reported end to end</text>
+    <text class="m" x="38" y="484">end_to_end_seconds = stt_seconds + downstream_seconds. The two endpoint stage times overlap inside the downstream window and are never added together, which is exactly how the UI presents them.</text>
+  </svg>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Stage</th><th>Provider / model</th><th>Endpoint or code path</th><th>Reported metrics</th><th>Latency boundary</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>stt</code></td>
+        <td>Azure AI Speech &mdash; real-time (incremental)</td>
+        <td><code>data/stt.py:run_azure_speech_realtime</code> &rarr; Speech SDK continuous recognition against the Cognitive Services endpoint</td>
+        <td>wall seconds, time to full transcript, finalization lag (mean/median/p95/max), segments, channel sessions, WER per participant</td>
+        <td>Overlaps the call; ends ~0.8s after the last utterance. Feeds <code>latency.stt_seconds</code></td>
+      </tr>
+      <tr>
+        <td><code>pii_endpoint</code></td>
+        <td>Azure AI Language &mdash; Conversation PII</td>
+        <td><code>POST {AZURE_LANGUAGE_ENDPOINT}/language/analyze-conversations/jobs</code> with <code>ConversationalPIITask</code>, then poll <code>Operation-Location</code></td>
+        <td>entity count, input characters</td>
+        <td>Starts with the summarizer call; poll interval 0.25s, capped at 480 polls</td>
+      </tr>
+      <tr>
+        <td><code>summarizer_endpoint</code></td>
+        <td>Azure AI Language &mdash; Conversational Summarization</td>
+        <td>Same jobs route with <code>ConversationalSummarizationTask</code>, aspects <code>issue</code> and <code>resolution</code></td>
+        <td>input characters, output characters</td>
+        <td>Runs concurrently with the PII job on the same two-worker pool</td>
+      </tr>
+      <tr>
+        <td><code>transcript_redaction</code></td>
+        <td>local &mdash; typed entity replacement</td>
+        <td><code>backend/redaction.py:apply_entities</code></td>
+        <td>entity count</td>
+        <td>After both endpoints join; sub-millisecond, in-process</td>
+      </tr>
+      <tr>
+        <td><code>summary_sanitization</code></td>
+        <td>local &mdash; typed entity replacement</td>
+        <td><code>backend/redaction.py:sanitize_summary</code>, including parsing the returned summary</td>
+        <td>replacement count</td>
+        <td>Sub-millisecond, in-process</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note ok">
+    <b>Latency contract.</b> Every successful result carries a <code>latency</code> block with
+    <code>stt_seconds</code> (time to a full transcript), <code>downstream_seconds</code> (the
+    whole post-transcript window, measured once around the concurrent endpoints and the two local
+    redaction stages), and <code>end_to_end_seconds</code>. A failed architecture reports
+    <code>latency: null</code> instead. The frontend renders these as an end-to-end latency table
+    plus a per-stage latency breakdown.
+  </div>
+
+  <div class="grid-2">
+    <div class="card proc">
+      <h3>Entity matching and redaction rules</h3>
+      <ul>
+        <li>Every returned entity is re-verified: the span in the source turn must equal the returned text, or the run fails loudly</li>
+        <li>Spans are applied back-to-front per turn; overlapping spans are dropped in favour of the earliest, longest one</li>
+        <li>Replacement text is derived from the category: <code>[PERSON]</code>, <code>[PHONE_NUMBER]</code>, <code>[US_SOCIAL_SECURITY_NUMBER]</code></li>
+        <li>Turn ids, participants, and timings survive redaction unchanged; derived fields (lexical, ITN, word timings) are dropped</li>
+        <li>The <code>transcript_redaction</code> and <code>summary_sanitization</code> stages are timed separately, so local redaction cost is visible next to the endpoint cost</li>
+        <li>The summary is then scrubbed of every detected literal value, case-insensitively, longest value first</li>
+      </ul>
+    </div>
+    <div class="card ai">
+      <h3>Why the unredacted transcript is sent twice</h3>
+      <ul>
+        <li>Conversation PII must see raw values to detect them at all</li>
+        <li>Summarization quality degrades if it only sees placeholders, so it also receives the original text &mdash; this matches the client-confirmed production flow</li>
+        <li>Both requests are built up front and dispatched together, so sending it twice costs bandwidth, not latency</li>
+        <li>Safety therefore comes from the post-hoc redaction pair, not from input filtering</li>
+        <li>Summarization additionally requires Azure's <code>Agent</code>/<code>Customer</code> roles; benchmark labels are projected for that request only</li>
+        <li>Source turns and the PII request keep their original participant labels</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= LAYERS ============================= -->
+<section class="section">
+  <h2 class="section-title">4. Layered system architecture</h2>
+  <p class="section-lead">
+    The browser is the intended launching point. Everything below the client layer is shared by
+    all three architectures; only the service layer differs.
+  </p>
+
+  <div class="layer">
+    <div class="layer-name" style="background:linear-gradient(135deg,#4299e1,#2b6cb0)">Client
+      <small>Bun-served TypeScript UI, port 3000</small></div>
+    <div class="layer-body">
+      <div class="chip"><b>Upload form</b><span>audio, reference transcript, PII annotations</span></div>
+      <div class="chip"><b>Channel mapping</b><span>ch0 REP / ch1 CUSTOMER defaults</span></div>
+      <div class="chip"><b>Run + poll</b><span>per-stage progress per architecture</span></div>
+      <div class="chip"><b>Latency tables</b><span>end-to-end, STT ready, downstream, and per-stage seconds</span></div>
+      <div class="chip"><b>Cost calculator</b><span>list and discounted totals from measured usage</span></div>
+      <div class="chip"><b>Same-origin proxy</b><span>/api/* forwarded to the backend</span></div>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="layer-name" style="background:linear-gradient(135deg,#ed8936,#c05621)">API &amp; orchestration
+      <small>FastAPI, port 8000</small></div>
+    <div class="layer-body">
+      <div class="chip"><b>Uploads</b><span>spooled to disk, never held in memory</span></div>
+      <div class="chip"><b>Audio normalization</b><span>ffmpeg only when needed; PCM passed through</span></div>
+      <div class="chip"><b>Job registry</b><span>queued / running / succeeded / failed</span></div>
+      <div class="chip"><b>Thread pools</b><span>2 concurrent jobs; each architecture starts on its own STT result</span></div>
+      <div class="chip"><b>Per-engine handoff</b><span>run_benchmark emits each engine result as it lands</span></div>
+      <div class="chip"><b>Failure isolation</b><span>one architecture failing never discards its peers</span></div>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="layer-name" style="background:linear-gradient(135deg,#9f7aea,#6b46c1)">Benchmark core
+      <small>single shared implementation</small></div>
+    <div class="layer-body">
+      <div class="chip"><b>run_benchmark()</b><span>one entry point for CLI and API, with a per-engine result callback</span></div>
+      <div class="chip"><b>Canonical conversation</b><span>ordered turns, 100 ns ticks, stable ids</span></div>
+      <div class="chip"><b>Architecture adapter</b><span>uniform run(source_entry) contract</span></div>
+      <div class="chip"><b>Deterministic redaction</b><span>shared by service and LLM paths</span></div>
+      <div class="chip"><b>Latency contract</b><span>stt / downstream / end-to-end seconds per architecture</span></div>
+      <div class="chip"><b>Scoring</b><span>WER, per-participant WER, PII precision/recall/F1</span></div>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="layer-name" style="background:linear-gradient(135deg,#805ad5,#553c9a)">Azure services
+      <small>data-plane, Entra ID only</small></div>
+    <div class="layer-body">
+      <div class="chip"><b>Azure AI Speech</b><span>real-time recognition, local key auth disabled</span></div>
+      <div class="chip"><b>Azure AI Language</b><span>Conversation PII, API version 2024-11-01</span></div>
+      <div class="chip"><b>Azure AI Language</b><span>Conversational Summarization, same jobs route</span></div>
+      <div class="chip"><b>Token scope</b><span>https://cognitiveservices.azure.com/.default</span></div>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="layer-name" style="background:linear-gradient(135deg,#48bb78,#276749)">Persistence &amp; output
+      <small>filesystem, no database</small></div>
+    <div class="layer-body">
+      <div class="chip"><b>Upload directory</b><span>normalized audio, transcript, annotations, metadata</span></div>
+      <div class="chip"><b>benchmark.json</b><span>full run report written beside the upload</span></div>
+      <div class="chip"><b>Cached comparison</b><span>checked-in results served without billable calls</span></div>
+      <div class="chip"><b>Result contract</b><span>identical shape across all architectures</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= FEATURES ============================= -->
+<section class="section">
+  <h2 class="section-title">5. Features and non-functional requirements</h2>
+
+  <div class="grid-2">
+    <div class="card data">
+      <h3>Functional</h3>
+      <ul>
+        <li>Dual-channel transcription with channel identity as authoritative speaker identity &mdash; no diarization is billed</li>
+        <li>Word-level timestamps and lexical / ITN / masked-ITN forms from the Speech SDK</li>
+        <li>Full-category PII detection with confidence scores per entity</li>
+        <li>Issue and resolution summary aspects</li>
+        <li>Typed placeholder redaction of both the conversation and the summary</li>
+        <li>Optional WER scoring and optional PII precision / recall / F1 scoring</li>
+      </ul>
+    </div>
+    <div class="card ok">
+      <h3>Non-functional</h3>
+      <ul>
+        <li><b>Asynchronous by construction</b> &mdash; real-time STT runs at 1&times;, so every user-facing run is submitted, polled, and read back</li>
+        <li><b>Early handoff</b> &mdash; downstream work is submitted as soon as this architecture's own STT result lands, not after all three engines finish</li>
+        <li><b>Isolation</b> &mdash; a failed architecture is reported independently with its error string and a null latency block</li>
+        <li><b>Determinism downstream</b> &mdash; redaction is span application, not model output rewriting</li>
+        <li><b>Integrity</b> &mdash; entity spans, turn counts, and ground-truth digests are all validated</li>
+        <li><b>No secrets in the repository</b> &mdash; Entra ID only, key auth disabled on the resource</li>
+        <li><b>Reproducibility</b> &mdash; the checked-in mock call is the default input for CLI, container, and UI alike</li>
+      </ul>
+    </div>
+    <div class="card proc">
+      <h3>Accuracy and cost telemetry</h3>
+      <ul>
+        <li>WER, accuracy, substitutions, deletions, insertions, hits &mdash; overall and per participant</li>
+        <li>Finalization lag distribution: mean, median, p95, max</li>
+        <li>Character counts feeding the Azure Language text-record model (1,000 characters per started record)</li>
+        <li>Applied discounts: 90% Speech, 70% Azure Language</li>
+        <li>Volume tiering applied when projecting to 100,000 calls</li>
+      </ul>
+    </div>
+    <div class="card ai">
+      <h3>Measured position in the benchmark</h3>
+      <ul>
+        <li>Accuracy: 3rd of 3 &mdash; 5.36% WER (MAI real-time 3.34%, MAI batch 4.15%)</li>
+        <li>Latency to transcript: tied 1st &mdash; 504.3s on a 504.2s call, reported as <code>latency.stt_seconds</code></li>
+        <li>Downstream: two overlapping Azure AI Language jobs plus two sub-millisecond local stages</li>
+        <li>Cost: 3rd of 3 &mdash; $0.031069 vs $0.014834 and $0.014913</li>
+        <li>Governance: 1st &mdash; no prompt, no model temperature, no JSON schema to validate</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= DEPLOYMENT ============================= -->
+<section class="section">
+  <h2 class="section-title">6. Deployment and runtime notes</h2>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Local runtime</h3>
+      <ul>
+        <li><code>docker compose up --build</code> starts the backend on port 8000 with a health check</li>
+        <li><code>cd frontend &amp;&amp; bun install &amp;&amp; bun run dev</code> starts the UI on port 3000</li>
+        <li>The host <code>~/.azure</code> profile is mounted read-write so <code>DefaultAzureCredential</code> can refresh tokens mid-run</li>
+        <li>Uploads and results are bind-mounted so they survive container restarts</li>
+        <li><code>uv run python data/stt.py</code> still benchmarks the checked-in mock call from the CLI</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Configuration</h3>
+      <ul>
+        <li><code>AZURE_LANGUAGE_ENDPOINT</code> must be the Cognitive Services data-plane endpoint, not a Foundry project URL &mdash; the adapter rejects the latter at construction time</li>
+        <li><code>AZURE_LANGUAGE_API_VERSION</code> defaults to <code>2024-11-01</code></li>
+        <li><code>AZURE_REQUEST_TIMEOUT_SECONDS</code> defaults to 300</li>
+        <li><code>ALLOWED_ORIGINS</code> pins CORS to the local frontend</li>
+        <li>Local development loads an ignored repository-root <code>.env</code>; deployed environments inject the same names</li>
+      </ul>
+    </div>
+    <div class="card ok">
+      <h3>Identity and network</h3>
+      <ul>
+        <li>Key-based auth is disabled on the Speech resource, so managed identity is the only path</li>
+        <li>In Azure Container Apps, enable a managed identity and grant it <b>Cognitive Services Speech User</b> on the Speech resource</li>
+        <li>With a user-assigned identity, also set <code>AZURE_CLIENT_ID</code> on the container</li>
+        <li>Keep egress open to <code>*.cognitiveservices.azure.com</code></li>
+        <li>Architecture 1 needs no outbound WebSocket &mdash; only HTTPS to Speech and Language</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Known runtime caveats</h3>
+      <ul>
+        <li>Speech tokens are fetched once per run and never refreshed; calls longer than the Entra token lifetime will fail mid-stream</li>
+        <li>The Conversation PII poll loop is bounded &mdash; it raises a timeout rather than hanging</li>
+        <li>Concurrent benchmark jobs are capped at 2 by default</li>
+        <li>The job registry is in-memory; a backend restart loses in-flight jobs, though completed reports remain on disk</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note ok">
+    <b>Infrastructure scope.</b> The checked-in Bicep provisions only the Foundry resource and
+    DeepSeek deployment used by Architectures 2 and 3. The Speech and Language resources this
+    architecture consumes are referenced by endpoint configuration, not created by this
+    repository.
+  </div>
+</section>
+
+<!-- ============================= CURRENT VS DESIRED ============================= -->
+<section class="section">
+  <h2 class="section-title">7. Current implementation vs the complete intended pipeline</h2>
+  <table>
+    <thead><tr><th>Aspect</th><th>Implemented today</th><th>Intended / complete pipeline</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>PII and summarizer branches</td>
+        <td>Both receive the same unredacted transcript and are submitted concurrently on a two-worker pool, so the downstream window is bounded by the slower endpoint rather than by their sum.</td>
+        <td>Unchanged &mdash; this is the intended shape. The join point is the local redaction pair, which needs entities from one branch and the raw summary from the other.</td>
+      </tr>
+      <tr>
+        <td>Cached default comparison</td>
+        <td>The checked-in results file contains STT engine metrics and pricing usage only &mdash; no downstream architecture block &mdash; so the UI correctly reports PII accuracy as not scored.</td>
+        <td>A live annotated run produces the full architecture block plus PII precision, recall, F1, category accuracy, and leakage rate.</td>
+      </tr>
+      <tr>
+        <td>Token lifecycle</td>
+        <td>One Entra token per run, taken at start.</td>
+        <td>In-flight refresh via the SDK authorization token for long-lived service use.</td>
+      </tr>
+      <tr>
+        <td>Architecture 4</td>
+        <td>Not implemented and not part of the three-way benchmark.</td>
+        <td>A future Azure Communication Services option combining call audio, STT, and PII handling.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  Architecture 1 of 3 &mdash; generated from the repository source: the benchmark core, the
+  Architecture 1 adapter, the shared redaction and scoring modules, the FastAPI service, the
+  Bun frontend, and the checked-in stereo benchmark results (504.168s call, 989-word reference,
+  113 VAD utterances). Companion diagrams:
+  <a href="architecture-2-mai-realtime-deepseek.html">architecture-2-mai-realtime-deepseek.html</a> and
+  <a href="architecture-3-mai-batch-deepseek.html">architecture-3-mai-batch-deepseek.html</a>.
+</footer>
+
+</div>
+</body>
+</html>

@@ -156,6 +156,12 @@ class DeepSeekProcessor:
             raise ValueError("The STT stage did not produce a canonical conversation.")
 
         source_snapshot = deepcopy(dict(source))
+        downstream_started = self.clock()
+
+        started = self.clock()
+        regex_hints = detect_regex_hints(source_snapshot)
+        regex_seconds = self.clock() - started
+
         system_prompt = self.system_prompt_path.read_text()
         user_content = json.dumps(
             {
@@ -165,7 +171,7 @@ class DeepSeekProcessor:
                     "channel, offset, and duration exactly, and summarize only the redacted content."
                 ),
                 "canonicalConversation": source_snapshot,
-                "regexCandidateHints": detect_regex_hints(source_snapshot),
+                "regexCandidateHints": regex_hints,
             },
             ensure_ascii=False,
         )
@@ -212,19 +218,31 @@ class DeepSeekProcessor:
         else:
             assert validation_error is not None
             raise validation_error
-        elapsed = self.clock() - started
+        llm_seconds = self.clock() - started
+
+        started = self.clock()
         redacted = apply_entities(source_snapshot, entities)
+        transcript_redaction_seconds = self.clock() - started
+
+        started = self.clock()
         summary, replacements = sanitize_summary(payload["summary"], entities)
+        sanitization_seconds = self.clock() - started
+        downstream_seconds = self.clock() - downstream_started
         if source_snapshot != source:
             raise RuntimeError("Source conversation was mutated during processing.")
 
         stages = {
             "stt": stt_stage(source_entry),
-            "pii_redaction": stage_result(
+            "regex_detection": stage_result(
+                "succeeded", provider="local", model="deterministic PII candidates",
+                wall_seconds=regex_seconds,
+                metrics={"candidate_count": len(regex_hints)},
+            ),
+            "llm_api_call": stage_result(
                 "succeeded", provider="Azure AI Foundry", model=self.deployment,
-                wall_seconds=elapsed,
+                wall_seconds=llm_seconds,
                 metrics={
-                    "regex_hint_count": len(detect_regex_hints(source_snapshot)),
+                    "combined_pii_and_summary": True,
                     "entity_count": len(entities),
                     "attempts": attempt,
                     "input_tokens": input_tokens,
@@ -232,19 +250,22 @@ class DeepSeekProcessor:
                     "total_tokens": input_tokens + output_tokens,
                 },
             ),
-            "summarization": stage_result(
-                "succeeded", provider="Azure AI Foundry", model=self.deployment,
-                wall_seconds=elapsed, metrics={"combined_request": True},
+            "transcript_redaction": stage_result(
+                "succeeded", provider="local", model="typed entity replacement",
+                wall_seconds=transcript_redaction_seconds,
+                metrics={"entity_count": len(entities)},
             ),
             "summary_sanitization": stage_result(
                 "succeeded", provider="local", model="deterministic-literal-replacement",
-                wall_seconds=0.0, metrics={"replacement_count": replacements},
+                wall_seconds=sanitization_seconds,
+                metrics={"replacement_count": replacements},
             ),
         }
         return architecture_result(
             architecture_id=architecture_id, label=label,
             source_entry=source_entry, redacted_conversation=redacted,
             summary=summary, entities=entities, stages=stages,
+            downstream_wall_seconds=downstream_seconds,
         )
 
     @staticmethod

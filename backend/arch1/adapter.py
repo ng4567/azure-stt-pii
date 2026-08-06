@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Mapping
 
 import requests
@@ -205,25 +206,43 @@ class Architecture1Adapter:
         if not isinstance(transcript, str):
             raise ValueError("Architecture 1 requires an STT transcript string.")
         projected = conversation_pii_input(conversation)
+        summarization_input = _summarization_input(projected)
         input_characters = _conversation_characters(projected)
 
-        started = self.clock()
-        pii_results = self.client.redact_pii(deepcopy(projected))
+        downstream_started = self.clock()
+
+        def run_pii() -> tuple[Mapping[str, Any], float]:
+            started = self.clock()
+            result = self.client.redact_pii(deepcopy(projected))
+            return result, self.clock() - started
+
+        def run_summary() -> tuple[Mapping[str, Any], float]:
+            started = self.clock()
+            result = self.client.summarize(deepcopy(summarization_input))
+            return result, self.clock() - started
+
+        with ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="azure-language"
+        ) as pool:
+            pii_future = pool.submit(run_pii)
+            summary_future = pool.submit(run_summary)
+            pii_results, pii_seconds = pii_future.result()
+            summary_results, summary_seconds = summary_future.result()
+
         entities = self._parse_entities(pii_results, conversation)
-        pii_seconds = self.clock() - started
+
+        started = self.clock()
         redacted = apply_entities(conversation, entities)
+        transcript_redaction_seconds = self.clock() - started
 
         started = self.clock()
-        summary_results = self.client.summarize(_summarization_input(projected))
         raw_summary = self._parse_summary(summary_results)
-        summary_seconds = self.clock() - started
-
-        started = self.clock()
         summary, replacements = sanitize_summary(raw_summary, entities)
         sanitization_seconds = self.clock() - started
+        downstream_seconds = self.clock() - downstream_started
         stages = {
             "stt": stt_stage(source_entry),
-            "pii_redaction": stage_result(
+            "pii_endpoint": stage_result(
                 "succeeded", provider="Azure AI Language", model="Conversation PII",
                 wall_seconds=pii_seconds,
                 metrics={
@@ -231,13 +250,18 @@ class Architecture1Adapter:
                     "input_characters": input_characters,
                 },
             ),
-            "summarization": stage_result(
+            "summarizer_endpoint": stage_result(
                 "succeeded", provider="Azure AI Language", model="Conversational Summarization",
                 wall_seconds=summary_seconds,
                 metrics={
                     "input_characters": input_characters,
                     "output_characters": len(raw_summary),
                 },
+            ),
+            "transcript_redaction": stage_result(
+                "succeeded", provider="local", model="typed entity replacement",
+                wall_seconds=transcript_redaction_seconds,
+                metrics={"entity_count": len(entities)},
             ),
             "summary_sanitization": stage_result(
                 "succeeded", provider="local", model="typed entity replacement",
@@ -252,6 +276,7 @@ class Architecture1Adapter:
             summary=summary,
             entities=entities,
             stages=stages,
+            downstream_wall_seconds=downstream_seconds,
         )
 
     @staticmethod

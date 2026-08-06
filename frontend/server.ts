@@ -15,9 +15,11 @@ const server = Bun.serve({
     "/api/*": (request) => {
       const url = new URL(request.url);
       const target = new URL(url.pathname + url.search, BACKEND_URL);
+      const headers = new Headers(request.headers);
+      headers.delete("host");
       return fetch(target, {
         method: request.method,
-        headers: request.headers,
+        headers,
         body: request.body,
         // @ts-expect-error - required by undici/Bun when streaming a request body
         duplex: "half",
@@ -35,4 +37,4 @@ const server = Bun.serve({
   },
 });
 
-console.log(`Frontend on http://localhost:${server.port}  ->  API ${BACKEND_URL}`);
+console.log(`Frontend is running on http://localhost:${server.port}`);

@@ -131,6 +131,7 @@ class ContractTests(unittest.TestCase):
                     wall_seconds=0.1,
                 )
             },
+            downstream_wall_seconds=0.2,
         )
         self.assertEqual(result["schema_version"], "1.0")
         self.assertEqual(result["status"], "succeeded")
@@ -139,6 +140,14 @@ class ContractTests(unittest.TestCase):
         self.assertIn("summary", result)
         self.assertIn("entities", result)
         self.assertIn("stages", result)
+        self.assertEqual(
+            result["latency"],
+            {
+                "stt_seconds": 0.0,
+                "downstream_seconds": 0.2,
+                "end_to_end_seconds": 0.2,
+            },
+        )
 
 
 if __name__ == "__main__":

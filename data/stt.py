@@ -993,6 +993,7 @@ async def _run_all(
     channel_map: dict[int, str],
     audio_seconds: float = 0.0,
     on_progress=None,
+    on_result=None,
 ) -> dict:
     """Run all three architectures concurrently - they are independent sessions."""
     loop = asyncio.get_running_loop()
@@ -1005,9 +1006,13 @@ async def _run_all(
         except Exception as error:  # one engine failing must not sink the others
             if on_progress:
                 on_progress(key, "failed")
+            if on_result:
+                on_result(key, ENGINES[key], error)
             return error
         if on_progress:
             on_progress(key, "done")
+        if on_result:
+            on_result(key, ENGINES[key], result)
         return result
 
     async def post_call_batch():
@@ -1055,6 +1060,7 @@ def run_benchmark(
     reference_path: Path | None = TRANSCRIPT_PATH,
     on_progress=None,
     channel_map: dict[int | str, str] | None = None,
+    on_engine_result=None,
 ) -> dict:
     """Benchmark all three architectures against `audio_path`.
 
@@ -1080,6 +1086,49 @@ def run_benchmark(
         for channel, pcm in enumerate(channels)
     }
 
+    results = {}
+
+    def finalize_engine(key, label, outcome) -> None:
+        if isinstance(outcome, Exception):
+            entry = {
+                "label": label,
+                "error": str(outcome),
+                "transcript": "",
+                "conversation": None,
+            }
+        else:
+            turns, metrics = outcome
+            hypothesis = flatten_turns(turns)
+            if reference is not None:
+                metrics.update(score(reference, hypothesis))
+                participant_metrics = {}
+                for channel, participant in normalized_map.items():
+                    participant_hypothesis = flatten_turns(
+                        turn for turn in turns if turn.channel == channel
+                    )
+                    if participant in participant_reference:
+                        participant_metrics[participant] = score(
+                            participant_reference[participant], participant_hypothesis
+                        )
+                if participant_metrics:
+                    metrics["participants"] = participant_metrics
+            metrics["word_count"] = len(normalize(hypothesis).split())
+            conversation = serialize_conversation(
+                turns,
+                normalized_map,
+                conversation_id=f"{audio_path.stem}-{key}",
+                speaker_attributed=len(channels) > 1,
+            )
+            entry = {
+                "label": label,
+                "metrics": metrics,
+                "transcript": hypothesis,
+                "conversation": conversation,
+            }
+        results[key] = entry
+        if on_engine_result is not None:
+            on_engine_result(key, entry)
+
     token = get_token()
     runs = asyncio.run(
         _run_all(
@@ -1089,47 +1138,12 @@ def run_benchmark(
             normalized_map,
             audio_seconds,
             on_progress,
+            finalize_engine,
         )
     )
-
-    results = {}
     for key, (label, outcome) in runs.items():
-        if isinstance(outcome, Exception):
-            results[key] = {
-                "label": label,
-                "error": str(outcome),
-                "transcript": "",
-                "conversation": None,
-            }
-            continue
-        turns, metrics = outcome
-        hypothesis = flatten_turns(turns)
-        if reference is not None:
-            metrics.update(score(reference, hypothesis))
-            participant_metrics = {}
-            for channel, participant in normalized_map.items():
-                participant_hypothesis = flatten_turns(
-                    turn for turn in turns if turn.channel == channel
-                )
-                if participant in participant_reference:
-                    participant_metrics[participant] = score(
-                        participant_reference[participant], participant_hypothesis
-                    )
-            if participant_metrics:
-                metrics["participants"] = participant_metrics
-        metrics["word_count"] = len(normalize(hypothesis).split())
-        conversation = serialize_conversation(
-            turns,
-            normalized_map,
-            conversation_id=f"{audio_path.stem}-{key}",
-            speaker_attributed=len(channels) > 1,
-        )
-        results[key] = {
-            "label": label,
-            "metrics": metrics,
-            "transcript": hypothesis,
-            "conversation": conversation,
-        }
+        if key not in results:
+            finalize_engine(key, label, outcome)
 
     return {
         "audio_seconds": audio_seconds,

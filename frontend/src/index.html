@@ -10,9 +10,8 @@
     <header>
       <h1>Speech-to-text benchmark</h1>
       <p class="subtitle">
-        Compare all three speech-to-text architectures with your call, or run the
-        built-in example without uploading anything. A reference transcript adds word
-        error rate scoring.
+        Compare three end-to-end call-processing architectures: speech-to-text, PII
+        redaction, and summarization. Run the built-in call or upload your own.
       </p>
       <p id="backend-status" class="status-pill">checking backend…</p>
     </header>
@@ -57,6 +56,36 @@
             <span id="upload-message" class="message"></span>
           </div>
         </form>
+      </section>
+
+      <section class="card">
+        <h2>Architecture diagrams</h2>
+        <div class="diagram-links">
+          <a
+            href="/api/architecture-diagrams/architecture-1-azure-language"
+            target="architecture-diagram-frame"
+          >
+            Azure Speech + Azure Language
+          </a>
+          <a
+            href="/api/architecture-diagrams/architecture-2-mai-realtime-deepseek"
+            target="architecture-diagram-frame"
+          >
+            MAI real-time + DeepSeek
+          </a>
+          <a
+            href="/api/architecture-diagrams/architecture-3-mai-batch-deepseek"
+            target="architecture-diagram-frame"
+          >
+            MAI batch + DeepSeek
+          </a>
+        </div>
+        <iframe
+          class="architecture-diagram"
+          name="architecture-diagram-frame"
+          title="Architecture diagram"
+          src="/api/architecture-diagrams/architecture-1-azure-language"
+        ></iframe>
       </section>
 
       <section class="card">

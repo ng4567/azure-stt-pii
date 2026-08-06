@@ -41,6 +41,16 @@ h2 {
   color: var(--muted);
 }
 
+h3 {
+  margin: 1.4rem 0 0.5rem;
+  font-size: 1rem;
+}
+
+h4 {
+  margin: 1rem 0 0.35rem;
+  color: var(--muted);
+}
+
 .subtitle {
   margin: 0 0 0.75rem;
   color: var(--muted);
@@ -66,6 +76,69 @@ a:focus-visible {
   border-radius: 10px;
   padding: 1.25rem;
   margin-top: 1.25rem;
+}
+
+.diagram-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.diagram-links a {
+  display: block;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.diagram-links a:focus,
+.diagram-links a:hover {
+  border-color: var(--accent);
+  background: #1d2330;
+}
+
+.architecture-diagram {
+  width: 100%;
+  height: min(78vh, 900px);
+  min-height: 560px;
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.architecture-results {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: #111827;
+}
+
+.comparison-section {
+  margin-top: 1.5rem;
+}
+
+.pricing-results {
+  margin-top: 0;
+}
+
+.comparison-details {
+  margin-top: 1.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.comparison-details > summary {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.architecture-detail {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
 }
 
 .fields {
@@ -276,6 +349,25 @@ th {
 
 td.numeric {
   font-variant-numeric: tabular-nums;
+}
+
+td.winner {
+  background: rgba(63, 185, 80, 0.14);
+  color: #7ee787;
+  font-weight: 700;
+}
+
+.winner-badge {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--good);
+  border-radius: 999px;
+  color: var(--good);
+  font-size: 0.65rem;
+  line-height: 1.2;
+  text-transform: uppercase;
+  vertical-align: middle;
 }
 
 details {

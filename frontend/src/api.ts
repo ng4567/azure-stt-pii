@@ -136,6 +136,11 @@ export interface ArchitectureResult {
   summary: string | null;
   entities: PiiEntity[];
   stages: Record<string, ArchitectureStage>;
+  latency: {
+    stt_seconds: number;
+    downstream_seconds: number;
+    end_to_end_seconds: number;
+  } | null;
   error: string | null;
 }
 

@@ -8,11 +8,13 @@ are implemented and benchmarked today; a fourth is reserved for future explorati
 - **PII redaction:** [Conversation PII in Azure AI Language](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/conversation-pii-overview)
 - **Summary:** Azure AI Language abstractive/conversation summarization
 
-Conversation PII and summarization both receive the original, unmodified transcript,
-including PII. This matches the client-confirmed production flow. After both service
-calls finish, a deterministic sanitization pass checks every PII entity identified by
-Conversation PII against the generated summary and replaces matches with typed
-placeholders such as `[PERSON]` and `[PHONE_NUMBER]`.
+Conversation PII and summarization run in parallel against independent copies of the
+original, unmodified transcript, including PII. This matches the client-confirmed
+production flow while keeping downstream latency to the slower endpoint rather than
+their sum. After both service calls finish, deterministic passes apply the detected
+entities to the transcript and search the generated summary for the same literal
+values, replacing matches with typed placeholders such as `[PERSON]` and
+`[PHONE_NUMBER]`.
 
 Issue/resolution summarization requires Azure's `Agent` and `Customer` participant
 roles. The adapter projects benchmark labels such as `REP` and `CUSTOMER` to those
@@ -47,9 +49,11 @@ implemented or included in the current three-way benchmark.
 
 Every implemented architecture emits the same versioned JSON shape: architecture
 identity and status, original transcript/conversation, redacted
-transcript/conversation, sanitized summary, normalized PII entities, and metrics for
-the `stt`, `pii_redaction`, `summarization`, and `summary_sanitization` stages. One
-failed architecture is reported independently and does not discard successful peers.
+transcript/conversation, sanitized summary, normalized PII entities, stage metrics,
+and latency from call start through the final sanitized outputs. Architecture 1
+reports its PII and summarizer endpoints separately; Architectures 2 and 3 report
+regex candidate detection and the combined DeepSeek API call. One failed architecture
+is reported independently and does not discard successful peers.
 
 ## Backend service configuration
 
@@ -236,9 +240,9 @@ long-lived service:
 
 | STT variant | Mode | WER | Accuracy | Mean lag | p95 lag | Transcript ready | Turns |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1. Azure Speech real-time | 2 incremental channel sessions | 5.36% | 94.64% | 0.76s | 0.92s | 504.3s | 85 |
-| 2. MAI real-time | 2 Voice Live channel sessions | **3.34%** | **96.66%** | 0.83s | 1.02s | **504.4s** | 112 |
-| 3. MAI post-call | 113 concurrent VAD-utterance requests | 4.15% | 95.85% | 17.75s turnaround | n/a | 521.9s | 112 |
+| 1. Azure Speech real-time | 2 incremental channel sessions | 5.36% | 94.64% | 1.71s | 11.49s | 505.2s | 85 |
+| 2. MAI real-time | 2 Voice Live channel sessions | **3.34%** | **96.66%** | **0.98s** | **1.15s** | **504.4s** | 112 |
+| 3. MAI post-call | 113 concurrent VAD-utterance requests | 4.04% | 95.96% | 24.43s turnaround | n/a | 528.6s | 112 |
 
 Per-participant WER:
 
@@ -252,7 +256,19 @@ MAI's whole-file enhanced response exposes one full-duration phrase per channel,
 cannot be converted into chronologically interleaved turns. Variant 3 therefore
 submits the already-detected post-call VAD utterances concurrently. It remains
 post-call and preserves real offsets, but request fan-out raises turnaround from the
-old 7.8s whole-file result to 17.75s.
+old 7.8s whole-file result to 24.43s.
+
+The same cached run includes complete downstream timings:
+
+| Architecture | STT ready | Downstream | End to end |
+| --- | ---: | ---: | ---: |
+| 1. Azure Speech + Azure Language | 505.24s | **5.47s** | **510.71s** |
+| 2. MAI real-time + DeepSeek | **504.44s** | 89.82s | 594.26s |
+| 3. MAI batch + DeepSeek | 528.60s | 76.19s | 604.79s |
+
+End to end is measured from call start until both the redacted transcript and
+sanitized summary are ready. Architecture 1 overlaps the Conversation PII and
+summarizer endpoints, so their individual stage times are not added together.
 
 ### Original mono baseline
 
@@ -302,28 +318,32 @@ A text record is each started block of 1,000 characters. Conversation PII volume
 tiers are $1.00/1K for 0-0.5M records, $0.75 for 0.5-2.5M, $0.30 for 2.5-10M, and
 $0.25 above 10M; this benchmark uses the first tier. The 504.168-second stereo call
 submits two mono channels, or 0.280093 billable audio hours. Architecture 1 sends
-5,212 characters (6 records) to PII and 5,872 input-plus-output characters (6 records)
-to summarization. Measured DeepSeek usage is 6,906 input / 6,743 output tokens for
-Architecture 2 and 7,124 input / 6,816 output tokens for Architecture 3. No cached
+5,212 characters (6 records) to PII and 5,830 input-plus-output characters (6 records)
+to summarization. Measured DeepSeek usage is 6,901 input / 7,689 output tokens for
+Architecture 2 and 7,119 input / 6,800 output tokens for Architecture 3. No cached
 input was reported, so the cached-token rate contributes $0.
 
 | Architecture | List / call | Discounted / call | 1,000 calls | 100,000 calls |
 | --- | ---: | ---: | ---: | ---: |
 | 1. Azure Speech + Azure Language | $0.290293 | **$0.031069** | $31.07 | $3,099.43* |
-| 2. MAI real-time + DeepSeek | $0.105585 | **$0.014834** | $14.83 | $1,483.44 |
-| 3. MAI batch + DeepSeek | $0.105663 | **$0.014913** | $14.91 | $1,491.31 |
+| 2. MAI real-time + DeepSeek | $0.106066 | **$0.015316** | $15.32 | $1,531.59 |
+| 3. MAI batch + DeepSeek | $0.105654 | **$0.014904** | $14.90 | $1,490.40 |
 
 \*The 100,000-call Architecture 1 projection applies the supplied PII tiers across
 600,000 records: 500,000 records at $1.00/1K and 100,000 at $0.75/1K before the
 70% Azure Language discount. The per-call and 1,000-call figures remain in tier 1.
 
-With discounts, Architecture 2 is the cheapest measured pipeline: about **52.3% less
-than Architecture 1** per benchmark call and $1,615.99 less per 100,000 calls after
+With discounts, Architecture 3 is the cheapest measured pipeline: about **52.0% less
+than Architecture 1** per benchmark call and $1,609.03 less per 100,000 calls after
 applying the PII volume tier.
-Architecture 3 is only $0.000079 per call more than Architecture 2 because its measured
-DeepSeek response is slightly larger. The frontend calculates the same list and
+Architecture 3 is $0.000412 per call less than Architecture 2 because its measured
+DeepSeek response is smaller. The frontend calculates the same list and
 discounted totals for every new run from submitted audio duration, Azure Language
 characters, and DeepSeek usage returned across all retry attempts.
+Price is shown first in each comparison. The lowest cost, latency, and WER values and
+the highest accuracy scores are highlighted per column; those winners are recomputed
+from every newly uploaded recording rather than being fixed to the built-in call.
+Per-participant WER is available in a collapsed detail view.
 
 These totals exclude hosting, storage, logging, network egress, fixture TTS generation,
 and any separate Voice Live host-model charge. Diarization is disabled. Audio duration
@@ -350,9 +370,8 @@ spans. The UI reports entity **precision**, **recall**, and **F1**; **category
 accuracy** among matched spans after normalizing provider category aliases; and **PII
 leakage rate**, equal to unmatched projected ground-truth entities divided by all
 projected ground-truth entities. It also displays alignment and TP/FP/FN counts. The
-historical cached report predates downstream entity output, so it correctly displays
-PII accuracy as not scored rather than inventing metrics; annotated live runs include
-`pii_accuracy` in the benchmark report.
+checked-in cached report includes the complete downstream entities and `pii_accuracy`
+for all three architectures.
 
 # Running it
 
@@ -371,8 +390,8 @@ to its default audio and reference transcript so either fixture can be downloade
 directly from the frontend.
 
 ```bash
-docker compose up --build              # backend API on http://localhost:8000
-cd frontend && bun install && bun dev   # UI on http://localhost:3000
+docker compose up --build              # UI on http://localhost:3000
+cd frontend && bun install && bun dev   # frontend-only development
 ```
 
 The backend container authenticates to Azure with `DefaultAzureCredential`, reusing

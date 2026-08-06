@@ -46,15 +46,29 @@ function metric(result: ArchitectureResult | undefined, stage: string, name: str
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function metricFromStages(
+  result: ArchitectureResult | undefined,
+  stages: string[],
+  name: string,
+): number | null {
+  for (const stage of stages) {
+    const value = metric(result, stage, name);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
 function measured(
   report: BenchmarkReport,
   architectureId: string,
   result: ArchitectureResult | undefined,
-  stage: string,
+  stages: string[],
   metricName: string,
   cachedName: string,
 ): number | null {
-  return metric(result, stage, metricName) ?? report.pricing_usage?.[architectureId]?.[cachedName] ?? null;
+  return metricFromStages(result, stages, metricName) ??
+    report.pricing_usage?.[architectureId]?.[cachedName] ??
+    null;
 }
 
 function component(
@@ -150,13 +164,16 @@ export function estimateArchitectureCosts(
   const arch2 = architectures[arch2Id];
   const arch3 = architectures[arch3Id];
   const piiCharacters = measured(
-    report, arch1Id, arch1, "pii_redaction", "input_characters", "pii_input_characters",
+    report, arch1Id, arch1, ["pii_endpoint", "pii_redaction"],
+    "input_characters", "pii_input_characters",
   );
   const summaryInput = measured(
-    report, arch1Id, arch1, "summarization", "input_characters", "summary_input_characters",
+    report, arch1Id, arch1, ["summarizer_endpoint", "summarization"],
+    "input_characters", "summary_input_characters",
   );
   const summaryOutput = measured(
-    report, arch1Id, arch1, "summarization", "output_characters", "summary_output_characters",
+    report, arch1Id, arch1, ["summarizer_endpoint", "summarization"],
+    "output_characters", "summary_output_characters",
   );
   const summaryCharacters = summaryInput === null || summaryOutput === null
     ? null
@@ -170,12 +187,18 @@ export function estimateArchitectureCosts(
   ): CostComponent[] => [
     tokenComponent(
       "DeepSeek V4 Flash input",
-      measured(report, architectureId, result, "pii_redaction", "input_tokens", "deepseek_input_tokens"),
+      measured(
+        report, architectureId, result, ["llm_api_call", "pii_redaction"],
+        "input_tokens", "deepseek_input_tokens",
+      ),
       rates.deepSeekInputPerMillionTokens,
     ),
     tokenComponent(
       "DeepSeek V4 Flash output",
-      measured(report, architectureId, result, "pii_redaction", "output_tokens", "deepseek_output_tokens"),
+      measured(
+        report, architectureId, result, ["llm_api_call", "pii_redaction"],
+        "output_tokens", "deepseek_output_tokens",
+      ),
       rates.deepSeekOutputPerMillionTokens,
     ),
   ];
