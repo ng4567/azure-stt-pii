@@ -52,8 +52,11 @@ implemented or included in the current three-way benchmark.
 Every implemented architecture emits the same versioned JSON envelope: architecture
 identity and status, original transcript/conversation, nullable redacted output,
 summary, entity list, stage metrics, and latency from call start through that
-architecture's declared final outputs. Architecture 1 is the deprecated Azure
-Language full-redaction baseline and returns a redacted conversation plus entities.
+architecture's declared final outputs. Architecture 1 is the Azure Language
+full-redaction baseline and returns a redacted conversation plus entities. Its
+summarization feature is [scheduled to retire on March 31,
+2029](https://learn.microsoft.com/en-us/azure/ai-services/language-service/summarization/overview);
+the benchmark does not claim that every Azure Language capability retires on that date.
 Architectures 2 and 3 are modern LLM alternatives and intentionally return a
 PII-safe summary only, with `redacted: null` and `entities: []`. One failed
 architecture is reported independently and does not discard successful peers.

@@ -124,8 +124,10 @@ conversation to DeepSeek as summary context, but the model does not return a
 regenerated or redacted conversation.
 
 The downstream capabilities are intentionally asymmetric. Architecture 1 is the
-deprecated Azure Language full-redaction baseline and emits transcript entities plus
-a redacted conversation. Architectures 2 and 3 are modern DeepSeek summary-only
+Azure Language full-redaction baseline and emits transcript entities plus a redacted
+conversation. Azure Language summarization is scheduled to retire on March 31, 2029;
+this comparison does not treat all Azure Language capabilities as deprecated.
+Architectures 2 and 3 are modern DeepSeek summary-only
 alternatives and emit a strict PII-safe summary with `redacted: null` and
 `entities: []`. Transcript-level PII precision/recall/F1 therefore applies only to
 Architecture 1. Summary safety is a separate capability and is not measured by the
@@ -432,8 +434,9 @@ transcript is supplied.
 
 - `gpt-live-transcribe` has never been run - the only genuinely incremental option
   remains unmeasured.
-- Batch turnaround is a single sample and varies 3.1s to 7.8s with load. No run
-  averaging is performed.
+- Published batch turnaround is a single measured sample (16.57s in the current
+  cached run). No repeated-run averaging, variance, or confidence interval is
+  reported.
 - No real call recordings have been tested; all conclusions rest on synthetic audio.
 - Entra token refresh is not implemented - see section 6.
 - This document's pricing figures cover STT only. Refreshed end-to-end summary-only
