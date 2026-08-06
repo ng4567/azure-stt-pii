@@ -61,8 +61,13 @@ class Architecture3AdapterTests(unittest.TestCase):
         result = Architecture3Adapter(processor=processor).run(SOURCE_ENTRY)
 
         self.assertEqual(result["stages"]["stt"]["status"], "succeeded")
-        self.assertEqual(result["stages"]["stt"]["provider"], "Azure AI Speech")
-        self.assertEqual(result["stages"]["stt"]["model"], "fast-transcription")
+        self.assertEqual(
+            result["stages"]["stt"]["provider"],
+            "Azure AI Speech / Fast Transcription",
+        )
+        self.assertEqual(
+            result["stages"]["stt"]["model"], "MAI-Transcribe-1.5 batch"
+        )
         self.assertEqual(result["stages"]["stt"]["wall_seconds"], 2.75)
         self.assertEqual(result["stages"]["stt"]["metrics"], SOURCE_ENTRY["metrics"])
         self.assertEqual(

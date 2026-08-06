@@ -1,6 +1,6 @@
 import unittest
 
-from backend.contracts import PiiEntity, architecture_result, stage_result
+from backend.contracts import PiiEntity, architecture_result, stage_result, stt_stage
 from backend.redaction import (
     apply_entities,
     entities_from_redacted_conversation,
@@ -111,6 +111,34 @@ class RedactionTests(unittest.TestCase):
 
 
 class ContractTests(unittest.TestCase):
+    def test_stt_stage_names_the_actual_speech_model_and_api_surface(self) -> None:
+        azure = stt_stage({"metrics": {
+            "mode": "real-time (incremental)",
+            "wall_seconds": 1,
+        }})
+        realtime = stt_stage({"metrics": {
+            "mode": "real-time (utterance micro-batch)",
+            "wall_seconds": 1,
+            "utterances_committed": 113,
+        }})
+        batch = stt_stage({"metrics": {
+            "mode": "batch (post-call VAD utterances)",
+            "wall_seconds": 1,
+            "utterance_requests": 113,
+        }})
+
+        self.assertEqual(
+            azure["model"], "Azure Speech real-time transcription (Speech SDK)"
+        )
+        self.assertEqual(realtime["provider"], "Azure AI Speech / Voice Live")
+        self.assertEqual(
+            realtime["model"], "MAI-Transcribe-1.5 real-time (113 VAD commits)"
+        )
+        self.assertEqual(batch["provider"], "Azure AI Speech / Fast Transcription")
+        self.assertEqual(
+            batch["model"], "MAI-Transcribe-1.5 batch (113 VAD requests)"
+        )
+
     def test_common_result_shape(self) -> None:
         entity = PiiEntity("Person", "Eleanor", "turn-0001", 5, 7)
         result = architecture_result(

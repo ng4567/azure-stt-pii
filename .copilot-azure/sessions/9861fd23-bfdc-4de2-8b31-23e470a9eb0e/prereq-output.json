@@ -1,0 +1,65 @@
+{
+  "components": [
+    {
+      "name": "benchmark-api",
+      "path": ".",
+      "stack": {"language": "Python", "framework": "FastAPI", "version": ">=3.14"},
+      "readiness": {"status": "fixesApplied", "fixes": ["Included data/mock-call-pii-ground-truth.json in the backend image."]},
+      "verdicts": {"build": "PASS", "completeness": "PASS", "deployability": "WARN"}
+    },
+    {
+      "name": "benchmark-frontend",
+      "path": "frontend",
+      "stack": {"language": "TypeScript", "framework": "Bun", "version": "current lockfile"},
+      "readiness": {"status": "ready", "fixes": []},
+      "verdicts": {"build": "PASS", "completeness": "PASS", "deployability": "WARN"}
+    }
+  ],
+  "warnings": [
+    {
+      "id": "W-LOCAL-STORAGE",
+      "component": "benchmark-api",
+      "axis": "deployability",
+      "summary": "Uploads and job results use local disk.",
+      "detail": "The Compose bind mount is persistent locally, but Container Apps replicas need durable shared storage or Blob Storage.",
+      "fix": "Use Azure Files or Blob Storage for uploaded audio, annotations, and results.",
+      "fixPhase": "scaffold"
+    },
+    {
+      "id": "W-FRONTEND-CONTAINER",
+      "component": "benchmark-frontend",
+      "axis": "deployability",
+      "summary": "The Bun frontend has no production container or Azure hosting configuration.",
+      "detail": "Local development is complete, but only the backend is containerized and Compose does not define the frontend.",
+      "fix": "Add a frontend deployment target or container during Azure scaffolding.",
+      "fixPhase": "scaffold"
+    }
+  ],
+  "detectedStack": "Python 3.14 FastAPI backend plus Bun TypeScript frontend",
+  "fastTrackEligible": false,
+  "overallHealth": "readyWithCaveats",
+  "buildRequirements": {
+    "hasNativeModules": true,
+    "hasDockerfile": true,
+    "f1Viable": false,
+    "exposedPort": 8000,
+    "f1BlockReason": "native Speech SDK and ASGI server"
+  },
+  "healthEndpoint": "/api/health",
+  "entryPoint": "backend.app.main:app",
+  "postDeployRecommendations": [
+    {
+      "title": "Move benchmark artifacts to durable storage",
+      "reason": "Container-local files are not durable or shared across replicas.",
+      "effort": "medium",
+      "services": ["Azure Blob Storage"]
+    },
+    {
+      "title": "Add a production frontend deployment",
+      "reason": "The current Bun server is configured only for local execution.",
+      "effort": "low",
+      "services": ["Azure Container Apps", "Azure Static Web Apps"]
+    }
+  ],
+  "initCommands": []
+}

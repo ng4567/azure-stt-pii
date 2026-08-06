@@ -162,6 +162,7 @@ class DeepSeekProcessor:
         regex_hints = detect_regex_hints(source_snapshot)
         regex_seconds = self.clock() - started
 
+        started = self.clock()
         system_prompt = self.system_prompt_path.read_text()
         user_content = json.dumps(
             {
@@ -196,29 +197,37 @@ class DeepSeekProcessor:
         api_version_params = _api_version_params(chat_url)
         if api_version_params is not None:
             request_kwargs["params"] = api_version_params
+        preparation_seconds = self.clock() - started
         validation_error: ValueError | None = None
         input_tokens = 0
         output_tokens = 0
+        api_seconds = 0.0
+        validation_seconds = 0.0
         for attempt in range(1, self.max_attempts + 1):
+            started = self.clock()
             response = self.http_post(chat_url, **request_kwargs)
+            api_seconds += self.clock() - started
             response.raise_for_status()
-            response_payload = response.json()
-            usage = response_payload.get("usage", {}) if isinstance(response_payload, Mapping) else {}
-            if isinstance(usage, Mapping):
-                input_tokens += int(usage.get("prompt_tokens", 0) or 0)
-                output_tokens += int(usage.get("completion_tokens", 0) or 0)
+            started = self.clock()
             try:
+                response_payload = response.json()
+                usage = response_payload.get("usage", {}) if isinstance(response_payload, Mapping) else {}
+                if isinstance(usage, Mapping):
+                    input_tokens += int(usage.get("prompt_tokens", 0) or 0)
+                    output_tokens += int(usage.get("completion_tokens", 0) or 0)
                 payload = self._parse_response(response_payload, source_snapshot)
                 entities = entities_from_redacted_conversation(
                     source_snapshot, payload["conversation"]
                 )
-                break
             except ValueError as exc:
                 validation_error = exc
+            else:
+                validation_seconds += self.clock() - started
+                break
+            validation_seconds += self.clock() - started
         else:
             assert validation_error is not None
             raise validation_error
-        llm_seconds = self.clock() - started
 
         started = self.clock()
         redacted = apply_entities(source_snapshot, entities)
@@ -238,9 +247,14 @@ class DeepSeekProcessor:
                 wall_seconds=regex_seconds,
                 metrics={"candidate_count": len(regex_hints)},
             ),
+            "request_preparation": stage_result(
+                "succeeded", provider="backend + Microsoft Entra ID",
+                model="prompt serialization and token acquisition",
+                wall_seconds=preparation_seconds,
+            ),
             "llm_api_call": stage_result(
                 "succeeded", provider="Azure AI Foundry", model=self.deployment,
-                wall_seconds=llm_seconds,
+                wall_seconds=api_seconds,
                 metrics={
                     "combined_pii_and_summary": True,
                     "entity_count": len(entities),
@@ -249,6 +263,11 @@ class DeepSeekProcessor:
                     "output_tokens": output_tokens,
                     "total_tokens": input_tokens + output_tokens,
                 },
+            ),
+            "response_validation": stage_result(
+                "succeeded", provider="local",
+                model="JSON schema validation and entity alignment",
+                wall_seconds=validation_seconds,
             ),
             "transcript_redaction": stage_result(
                 "succeeded", provider="local", model="typed entity replacement",

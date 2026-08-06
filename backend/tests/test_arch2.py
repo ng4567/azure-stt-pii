@@ -106,7 +106,9 @@ class Architecture2Tests(unittest.TestCase):
             [
                 "stt",
                 "regex_detection",
+                "request_preparation",
                 "llm_api_call",
+                "response_validation",
                 "transcript_redaction",
                 "summary_sanitization",
             ],

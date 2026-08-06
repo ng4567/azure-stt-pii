@@ -1,0 +1,49 @@
+{
+  "sessionId": "9861fd23-bfdc-4de2-8b31-23e470a9eb0e",
+  "createdUtc": "2026-08-06T14:03:43.092Z",
+  "lastModifiedUtc": "2026-08-06T14:12:00.000Z",
+  "currentPhase": null,
+  "completedPhases": ["prereq"],
+  "statusSummary": "Repository is operationally ready with deployment caveats; benchmark conclusions still need broader real-call evidence.",
+  "intent": {
+    "userPrompt": "Based on the current state of this repo, is it ready to go and does it properly benchmark the different architectures against each other with a realistic scenario?",
+    "description": "Evaluate operational readiness and benchmark validity.",
+    "refinedFromScan": true,
+    "scanDiscoveredFacts": [
+      "Three end-to-end architectures share one concurrent STT orchestration and common output contract.",
+      "The default scenario is one 504-second synthetic, dual-channel support call with a 989-word reference and 26 PII annotations.",
+      "Summarization output has no reference-based quality metric.",
+      "The backend Dockerfile omits data/mock-call-pii-ground-truth.json, preventing built-in upload seeding in the image."
+    ]
+  },
+  "components": [
+    {
+      "name": "benchmark-api",
+      "path": ".",
+      "stack": {"language": "Python", "framework": "FastAPI", "version": ">=3.14"},
+      "readiness": {"status": "fixesApplied", "fixes": ["Copied the PII ground-truth fixture into the backend image and whitelisted it in .dockerignore."]},
+      "verdicts": {"build": "PASS", "completeness": "PASS", "deployability": "WARN"}
+    },
+    {
+      "name": "benchmark-frontend",
+      "path": "frontend",
+      "stack": {"language": "TypeScript", "framework": "Bun", "version": "current lockfile"},
+      "readiness": {"status": "ready", "fixes": []},
+      "verdicts": {"build": "PASS", "completeness": "PASS", "deployability": "WARN"}
+    }
+  ],
+  "azure": {
+    "subscriptionId": "fd918039-a89e-49a7-8e32-af614b3765f9",
+    "subscriptionName": "ME-MngEnvMCAP461858-nikhilgopal-1",
+    "resourceGroup": "",
+    "region": ""
+  },
+  "repo": {
+    "remote": "https://github.com/ng4567/azure-stt-pii.git",
+    "lastScanCommit": "f15faad1e078781963a85548eaf5dc2a8c335c4a"
+  },
+  "app": {"name": "azure-stt-pii"},
+  "detectedInfra": ["dockerfile", "docker-compose", "bicep"],
+  "detectedServices": [],
+  "overrides": []
+}

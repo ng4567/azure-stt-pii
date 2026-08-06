@@ -119,10 +119,33 @@ def architecture_result(
 
 def stt_stage(source_entry: Mapping[str, Any]) -> dict[str, Any]:
     metrics = dict(source_entry.get("metrics") or {})
+    mode = str(metrics.get("mode", "speech-to-text"))
+    if mode == "real-time (incremental)":
+        provider = "Azure AI Speech"
+        model = "Azure Speech real-time transcription (Speech SDK)"
+    elif mode == "real-time (utterance micro-batch)":
+        provider = "Azure AI Speech / Voice Live"
+        commits = int(metrics.get("utterances_committed", 0) or 0)
+        model = (
+            f"MAI-Transcribe-1.5 real-time ({commits} VAD commits)"
+            if commits
+            else "MAI-Transcribe-1.5 real-time"
+        )
+    elif mode in {"batch (post-call VAD utterances)", "fast-transcription"}:
+        provider = "Azure AI Speech / Fast Transcription"
+        requests = int(metrics.get("utterance_requests", 0) or 0)
+        model = (
+            f"MAI-Transcribe-1.5 batch ({requests} VAD requests)"
+            if requests
+            else "MAI-Transcribe-1.5 batch"
+        )
+    else:
+        provider = "Azure AI Speech"
+        model = mode
     return stage_result(
         "succeeded",
-        provider="Azure AI Speech",
-        model=str(metrics.get("mode", "speech-to-text")),
+        provider=provider,
+        model=model,
         wall_seconds=float(metrics.get("wall_seconds", 0.0)),
         metrics=metrics,
     )

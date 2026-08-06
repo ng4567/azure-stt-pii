@@ -898,16 +898,18 @@ def _run_mai_batch_channel(
     sample_rate: int,
     channel: int,
     participant: str,
-) -> tuple[list[Turn], float, int]:
+) -> tuple[list[Turn], float, int, list[float]]:
     """Transcribe post-call VAD utterances concurrently to preserve real turn timing."""
     utterances = find_utterances(pcm, sample_rate)
     start = time.perf_counter()
 
-    def transcribe(index: int, bounds: tuple[float, float]) -> Turn | None:
+    def transcribe(
+        index: int, bounds: tuple[float, float]
+    ) -> tuple[Turn | None, float]:
         utterance_start, utterance_end = bounds
         byte_start = int(utterance_start * sample_rate) * 2
         byte_end = int(utterance_end * sample_rate) * 2
-        clip_turns, _, _ = _run_mai_batch_clip(
+        clip_turns, api_latency, _ = _run_mai_batch_clip(
             token,
             pcm[byte_start:byte_end],
             sample_rate,
@@ -916,13 +918,16 @@ def _run_mai_batch_channel(
         )
         text = flatten_turns(clip_turns)
         if not text:
-            return None
-        return Turn(
-            participant_id=participant,
-            channel=channel,
-            offset=int(utterance_start * 10_000_000),
-            duration=int((utterance_end - utterance_start) * 10_000_000),
-            text=text,
+            return None, api_latency
+        return (
+            Turn(
+                participant_id=participant,
+                channel=channel,
+                offset=int(utterance_start * 10_000_000),
+                duration=int((utterance_end - utterance_start) * 10_000_000),
+                text=text,
+            ),
+            api_latency,
         )
 
     with ThreadPoolExecutor(max_workers=min(4, max(1, len(utterances)))) as pool:
@@ -930,8 +935,14 @@ def _run_mai_batch_channel(
             pool.submit(transcribe, index, bounds)
             for index, bounds in enumerate(utterances)
         ]
-        turns = [turn for future in futures if (turn := future.result()) is not None]
-    return turns, time.perf_counter() - start, len(utterances)
+        outputs = [future.result() for future in futures]
+    turns = [turn for turn, _ in outputs if turn is not None]
+    return (
+        turns,
+        time.perf_counter() - start,
+        len(utterances),
+        [api_latency for _, api_latency in outputs],
+    )
 
 
 def run_mai_batch(
@@ -956,6 +967,7 @@ def run_mai_batch(
         outputs = [future.result() for future in futures]
     turns = finalize_turns(turn for output in outputs for turn in output[0])
     latency = max(output[1] for output in outputs)
+    api_latencies = [value for output in outputs for value in output[3]]
     metrics = {
         "mode": "batch (post-call VAD utterances)",
         "wall_seconds": latency,
@@ -967,6 +979,10 @@ def run_mai_batch(
         "segments": len(turns),
         "channel_sessions": len(channels),
         "utterance_requests": sum(output[2] for output in outputs),
+        "api_request_latency": lag_stats(api_latencies),
+        "request_concurrency_per_channel": 4,
+        "max_concurrent_requests": len(channels) * 4,
+        "wall_includes_local_orchestration": True,
         "timing_estimated": False,
     }
     return turns, metrics
