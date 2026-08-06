@@ -28,7 +28,7 @@ The backend already exposes `/api/health`, uses asynchronous/pollable jobs, and 
 | Container Apps environment | `cae-stt-pii-poc` | New, consumption workload profile |
 | Backend app | `ca-stt-pii-api` | Internal ingress; min 1/max 1 replica to preserve in-memory jobs |
 | Frontend app | `ca-stt-pii-web` | External ingress; min 0/max 1 replica |
-| Speech/Voice Live | `charter-stt-pii-resource` | Existing resource in `rg-charter-stt-pii`; unchanged |
+| Speech/Voice Live | `<speech-resource>` | Existing resource in `<resource-group>`; unchanged |
 | Azure Language + DeepSeek | `finance-app-resource` | Existing resource in `finance-app-ng`; unchanged |
 
 The backend identity receives `Cognitive Services User` at the two existing AI-resource scopes and `AcrPull` on the registry. The frontend identity receives only `AcrPull`. The frontend reaches the backend over the Container Apps environment's internal FQDN.
@@ -101,14 +101,14 @@ Deployed successfully on 2026-08-06 to Azure Container Apps in East US.
 | Public frontend | `https://ca-stt-pii-web.wittysand-9e0f9316.eastus.azurecontainerapps.io` |
 | Proxied health endpoint | `https://ca-stt-pii-web.wittysand-9e0f9316.eastus.azurecontainerapps.io/api/health` returned HTTP 200 with `{"status":"ok"}` |
 | Cached benchmark endpoint | `https://ca-stt-pii-web.wittysand-9e0f9316.eastus.azurecontainerapps.io/api/benchmark/default` returned HTTP 200 with the built-in benchmark payload |
-| Backend revision | `ca-stt-pii-api--0000002`, healthy, 100% traffic |
-| Frontend revision | `ca-stt-pii-web--0000003`, healthy, 100% traffic |
-| Backend image | `acrsttpiifd9180.azurecr.io/azure-stt-pii-backend:worktree-bd4c1eb047d6-20260806155200` |
-| Frontend image | `acrsttpiifd9180.azurecr.io/azure-stt-pii-frontend:worktree-bd4c1eb047d6-20260806155200` |
+| Backend revision | `ca-stt-pii-api--0000003`, healthy, 100% traffic |
+| Frontend revision | `ca-stt-pii-web--0000004`, healthy, 100% traffic |
+| Backend image | `acrsttpiifd9180.azurecr.io/azure-stt-pii-backend:release-f35a6f69b6c1-20260806195222` |
+| Frontend image | `acrsttpiifd9180.azurecr.io/azure-stt-pii-frontend:release-f35a6f69b6c1-20260806195222` |
 
 Live role verification passed for both `AcrPull` assignments and both backend `Cognitive Services User` assignments. The frontend proxy removes the incoming `Host` header before forwarding requests so ACA can route them to the backend's internal FQDN.
 
-The current repository worktree was redeployed and verified at `2026-08-06T15:59:01Z`. Backend tests passed (`51 passed`), frontend type checking passed, and frontend tests passed (`12 passed`).
+Commit `f35a6f69b6c1` and its current worktree were deployed and verified at `2026-08-06T19:59:20Z`. Backend tests passed (`58 passed`), frontend type checking passed, and frontend tests passed (`19 passed`).
 
 ## 9. Generated Artifacts
 

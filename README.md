@@ -68,9 +68,13 @@ should inject the same names directly. Authentication remains Microsoft Entra ID
 `DefaultAzureCredential`--no service keys are stored in this repository.
 
 ```dotenv
-AZURE_LANGUAGE_ENDPOINT=https://<language-resource>.cognitiveservices.azure.com
-AZURE_FOUNDRY_ENDPOINT=https://<foundry-resource>.cognitiveservices.azure.com
+AZURE_LANGUAGE_ENDPOINT=<endpoint>
+AZURE_FOUNDRY_ENDPOINT=<endpoint>
 AZURE_FOUNDRY_DEPLOYMENT=<deepseek-deployment-name>
+AZURE_SPEECH_RESOURCE_NAME=<speech-resource>
+AZURE_SPEECH_ENDPOINT=<endpoint>
+AZURE_SPEECH_RESOURCE_ID=/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<speech-resource>
+AZURE_VOICE_LIVE_URL=<endpoint>
 # Optional overrides:
 AZURE_LANGUAGE_API_VERSION=2024-11-01
 AZURE_FOUNDRY_API_VERSION=2025-04-01-preview
@@ -80,18 +84,15 @@ AZURE_REQUEST_TIMEOUT_SECONDS=300
 ```
 
 `AZURE_LANGUAGE_ENDPOINT` must be the Language resource's Cognitive Services
-data-plane endpoint (for example,
-`https://finance-app-resource.cognitiveservices.azure.com`). A Foundry project URL
-such as `https://<resource>.services.ai.azure.com/api/projects/<project>` is a project
-management endpoint and does not expose the Conversation Analysis job route used by
-Architecture 1.
+data-plane `<endpoint>`. A Foundry project endpoint is a project-management endpoint
+and does not expose the Conversation Analysis job route used by Architecture 1.
 
 `data/system_prompt.txt` is runtime configuration and is copied into the backend
 container. Its entire content is used verbatim as the DeepSeek system message.
 
 ## Foundry infrastructure
 
-[`infra/main.bicep`](infra/main.bicep) creates the `stt-pii` resource group in East
+[`infra/main.bicep`](infra/main.bicep) creates `<resource-group>` in East
 US, provisions a Microsoft Foundry resource, and deploys DeepSeek-V4 Flash using the
 Global Standard SKU. The deployment keeps local key authentication disabled.
 
@@ -211,7 +212,7 @@ No code changes are needed. But it is not automatic - three things must be true:
    az role assignment create \
      --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
      --role "Cognitive Services Speech User" \
-     --scope "/subscriptions/$SUB/resourceGroups/rg-charter-stt-pii/providers/Microsoft.CognitiveServices/accounts/charter-stt-pii-resource"
+     --scope "/subscriptions/$SUB/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<speech-resource>"
    ```
 
    This step is easy to miss locally, because the current developer identity reaches

@@ -4,8 +4,8 @@ Context document for agents working on the STT stage of this repo. Everything he
 was verified empirically against live Azure resources - no claim below is
 speculative unless explicitly flagged as unverified.
 
-- **Resource**: `charter-stt-pii-resource`, resource group `rg-charter-stt-pii`, region `eastus`
-- **Subscription**: `fd918039-a89e-49a7-8e32-af614b3765f9`
+- **Resource**: `<speech-resource>`, resource group `<resource-group>`, region `eastus`
+- **Subscription**: `<subscription-id>`
 - **Scripts**: `data/tts.py` (generate audio), `data/stt.py` (benchmark)
 - **Runtime**: macOS, Python 3.14, `uv`-managed venv. Run with `uv run python data/stt.py`.
 
@@ -317,7 +317,7 @@ mandatory.
 - REST and WebSocket: plain `Authorization: Bearer {token}`.
 - Token scope: `https://cognitiveservices.azure.com/.default`.
 - Resource ID:
-  `/subscriptions/fd918039-a89e-49a7-8e32-af614b3765f9/resourceGroups/rg-charter-stt-pii/providers/Microsoft.CognitiveServices/accounts/charter-stt-pii-resource`
+  `/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<speech-resource>`
 
 **Running in a container (ACA/AKS)**: `DefaultAzureCredential` resolves to
 `ManagedIdentityCredential`, so no code changes are needed - but the managed identity

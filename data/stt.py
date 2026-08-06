@@ -50,6 +50,7 @@ import asyncio
 import base64
 import json
 import math
+import os
 import re
 import statistics
 import string
@@ -66,6 +67,10 @@ import jiwer
 import requests
 import websockets
 from azure.identity import DefaultAzureCredential
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
 try:
     from conversation import (
         AudioTiming,
@@ -87,17 +92,25 @@ except ModuleNotFoundError:  # imported as `data.stt` by tests and other package
         validate_channel_map,
     )
 
-RESOURCE_NAME = "charter-stt-pii-resource"
-SPEECH_ENDPOINT = f"https://{RESOURCE_NAME}.cognitiveservices.azure.com"
-RESOURCE_ID = (
-    "/subscriptions/fd918039-a89e-49a7-8e32-af614b3765f9"
-    "/resourceGroups/rg-charter-stt-pii"
-    f"/providers/Microsoft.CognitiveServices/accounts/{RESOURCE_NAME}"
+RESOURCE_NAME = os.getenv("AZURE_SPEECH_RESOURCE_NAME", "speech-resource")
+SPEECH_ENDPOINT = os.getenv(
+    "AZURE_SPEECH_ENDPOINT",
+    f"https://{RESOURCE_NAME}.cognitiveservices.azure.com",
+).rstrip("/")
+RESOURCE_ID = os.getenv(
+    "AZURE_SPEECH_RESOURCE_ID",
+    (
+        "/subscriptions/<subscription-id>/resourceGroups/<resource-group>"
+        f"/providers/Microsoft.CognitiveServices/accounts/{RESOURCE_NAME}"
+    ),
 )
 
-VOICE_LIVE_URL = (
-    f"wss://{RESOURCE_NAME}.services.ai.azure.com/voice-live/realtime"
-    "?api-version=2026-04-10&model=gpt-4.1"
+VOICE_LIVE_URL = os.getenv(
+    "AZURE_VOICE_LIVE_URL",
+    (
+        f"wss://{RESOURCE_NAME}.services.ai.azure.com/voice-live/realtime"
+        "?api-version=2026-04-10&model=gpt-4.1"
+    ),
 )
 FAST_TRANSCRIPTION_API_VERSION = "2025-10-15"
 

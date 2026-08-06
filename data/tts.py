@@ -22,6 +22,7 @@ For more samples please visit https://github.com/Azure-Samples/cognitive-service
 import argparse
 import array
 import json
+import os
 import re
 import wave
 from pathlib import Path
@@ -29,12 +30,21 @@ from urllib.parse import urlparse
 
 import azure.cognitiveservices.speech as speechsdk
 from azure.identity import DefaultAzureCredential
+from dotenv import load_dotenv
 
-ENDPOINT_URL = "https://charter-stt-pii-resource.cognitiveservices.azure.com/"
-RESOURCE_ID = (
-    "/subscriptions/fd918039-a89e-49a7-8e32-af614b3765f9"
-    "/resourceGroups/rg-charter-stt-pii"
-    "/providers/Microsoft.CognitiveServices/accounts/charter-stt-pii-resource"
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+RESOURCE_NAME = os.getenv("AZURE_SPEECH_RESOURCE_NAME", "speech-resource")
+ENDPOINT_URL = os.getenv(
+    "AZURE_SPEECH_ENDPOINT",
+    f"https://{RESOURCE_NAME}.cognitiveservices.azure.com",
+)
+RESOURCE_ID = os.getenv(
+    "AZURE_SPEECH_RESOURCE_ID",
+    (
+        "/subscriptions/<subscription-id>/resourceGroups/<resource-group>"
+        f"/providers/Microsoft.CognitiveServices/accounts/{RESOURCE_NAME}"
+    ),
 )
 
 TRANSCRIPT_PATH = Path(__file__).with_name("mock-call-transcript.txt")
