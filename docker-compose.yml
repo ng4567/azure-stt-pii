@@ -8,6 +8,9 @@ services:
       - "127.0.0.1:8000:8000"
     environment:
       ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+      AZURE_LANGUAGE_ENDPOINT: ${AZURE_LANGUAGE_ENDPOINT:-}
+      AZURE_FOUNDRY_ENDPOINT: ${AZURE_FOUNDRY_ENDPOINT:-}
+      AZURE_FOUNDRY_DEPLOYMENT: ${AZURE_FOUNDRY_DEPLOYMENT:-}
     volumes:
       # DefaultAzureCredential falls through to the Azure CLI, so the container
       # reuses the profile from `az login` on the host. Mounted read-write so the

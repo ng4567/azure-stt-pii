@@ -13,6 +13,21 @@
   },
   "reference_words": 989,
   "scored": true,
+  "pricing_usage": {
+    "architecture-1-azure-language": {
+      "pii_input_characters": 5212,
+      "summary_input_characters": 5212,
+      "summary_output_characters": 660
+    },
+    "architecture-2-mai-realtime-deepseek": {
+      "deepseek_input_tokens": 6906,
+      "deepseek_output_tokens": 6743
+    },
+    "architecture-3-mai-batch-deepseek": {
+      "deepseek_input_tokens": 7124,
+      "deepseek_output_tokens": 6816
+    }
+  },
   "engines": {
     "architecture-1-azure-speech-realtime": {
       "label": "1. Azure Speech real-time (SDK)",

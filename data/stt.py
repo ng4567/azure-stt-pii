@@ -1,5 +1,5 @@
 """
-Speech-to-text accuracy + latency benchmark for the three architectures.
+Speech-to-text accuracy + latency benchmark for the three implemented architectures.
 
 Runs a mono or dual-channel call through three STT pipelines, emits chronological
 speaker turns, and scores the derived flat transcript against a reference:
@@ -636,7 +636,7 @@ def run_azure_speech_realtime(
 
 
 # --------------------------------------------------------------------------- #
-# Architecture 2 - MAI-Transcribe-1.5 real-time (Voice Live, VAD-aligned commits)
+# Architecture 2 STT - MAI-Transcribe-1.5 real-time (Voice Live, VAD-aligned commits)
 # --------------------------------------------------------------------------- #
 async def _run_mai_realtime_channel(
     token: str,
@@ -799,7 +799,7 @@ async def run_mai_realtime(
 
 
 # --------------------------------------------------------------------------- #
-# Architecture 3 - MAI-Transcribe-1.5 batch (post-call VAD utterances)
+# Architecture 3 STT - MAI-Transcribe-1.5 batch (post-call VAD utterances)
 # --------------------------------------------------------------------------- #
 def _post_with_retry(*args, **kwargs) -> requests.Response:
     """Retry only transient transport, throttling, and server failures."""

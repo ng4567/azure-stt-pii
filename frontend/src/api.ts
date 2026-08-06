@@ -98,6 +98,41 @@ export interface EngineResult {
   error?: string;
 }
 
+export type ArchitectureStatus = "succeeded" | "failed";
+export type ArchitectureState = "pending" | "running" | "done" | "failed";
+
+export interface ArchitectureStage {
+  status: "succeeded" | "failed" | "skipped";
+  provider: string;
+  model: string;
+  wall_seconds: number;
+  metrics: Record<string, unknown>;
+  error: string | null;
+}
+
+export interface PiiEntity {
+  category: string;
+  text: string;
+  turn_id: string;
+  offset: number;
+  length: number;
+  confidence: number | null;
+  placeholder: string;
+}
+
+export interface ArchitectureResult {
+  schema_version: "1.0";
+  architecture_id: string;
+  label: string;
+  status: ArchitectureStatus;
+  source: { transcript: string; conversation: Conversation } | null;
+  redacted: { transcript: string; conversation: Conversation } | null;
+  summary: string | null;
+  entities: PiiEntity[];
+  stages: Record<string, ArchitectureStage>;
+  error: string | null;
+}
+
 export interface BenchmarkReport {
   audio_seconds: number;
   channel_count: number;
@@ -107,6 +142,10 @@ export interface BenchmarkReport {
   reference_words: number | null;
   scored: boolean;
   engines: Record<string, EngineResult>;
+  /** Absent from historical cached reports created before downstream pipelines. */
+  architectures?: Record<string, ArchitectureResult>;
+  /** Measured usage retained when cached reports omit full downstream results. */
+  pricing_usage?: Record<string, Record<string, number>>;
 }
 
 export type JobStatus = "queued" | "running" | "succeeded" | "failed";
@@ -122,6 +161,8 @@ export interface Job {
   scored: boolean;
   engines: Record<string, EngineState>;
   engine_labels: Record<string, string>;
+  architectures: Record<string, ArchitectureState>;
+  architecture_labels: Record<string, string>;
   result: BenchmarkReport | null;
   error: string | null;
   traceback?: string;
@@ -177,4 +218,7 @@ export const api = {
   listJobs: () => request<Job[]>("/api/jobs"),
 
   getJob: (id: string) => request<Job>(`/api/jobs/${id}`),
+
+  getArchitectureResult: (jobId: string, architectureId: string) =>
+    request<ArchitectureResult>(`/api/jobs/${jobId}/architectures/${architectureId}`),
 };

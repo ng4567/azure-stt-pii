@@ -1,7 +1,7 @@
 """HTTP API for the STT benchmark suite.
 
 Upload a call recording and/or its reference transcript, then run the three
-architectures from the README against it.
+implemented end-to-end architectures from the README against it.
 """
 
 import shutil
@@ -196,3 +196,16 @@ def get_engine_conversation(job_id: str, engine: str) -> dict:
     if conversation is None:
         raise HTTPException(404, "This engine did not produce a conversation.")
     return conversation
+
+
+@app.get("/api/jobs/{job_id}/architectures/{architecture_id}")
+def get_architecture_result(job_id: str, architecture_id: str) -> dict:
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, "No such job.")
+    if job["status"] != "succeeded":
+        raise HTTPException(409, f"Job is {job['status']}; no architecture result yet.")
+    result = job["result"].get("architectures", {}).get(architecture_id)
+    if result is None:
+        raise HTTPException(404, "No such architecture in this run.")
+    return result

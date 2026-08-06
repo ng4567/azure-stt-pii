@@ -9,9 +9,16 @@ import json
 import threading
 import traceback
 import uuid
+from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+
+from backend.arch1 import Architecture1Adapter
+from backend.arch2 import Architecture2Adapter
+from backend.arch3 import Architecture3Adapter
+from backend.architecture import ARCHITECTURE_LABELS
+from backend.contracts import failed_architecture
 
 from . import uploads
 from .config import MAX_CONCURRENT_JOBS
@@ -29,6 +36,64 @@ _pool = ThreadPoolExecutor(
 )
 
 
+ARCHITECTURE_FACTORIES = {
+    "architecture-1-azure-language": Architecture1Adapter,
+    "architecture-2-mai-realtime-deepseek": Architecture2Adapter,
+    "architecture-3-mai-batch-deepseek": Architecture3Adapter,
+}
+
+
+def run_architectures(stt_report: dict, adapters=None, on_progress=None) -> dict[str, dict]:
+    """Run independent downstream pipelines against one shared STT report."""
+    selected = list(adapters) if adapters is not None else list(ARCHITECTURE_FACTORIES)
+    if not selected:
+        return {}
+
+    def notify(architecture_id: str, state: str) -> None:
+        if on_progress is not None:
+            on_progress(architecture_id, state)
+
+    def run_one(selected_adapter):
+        if isinstance(selected_adapter, str):
+            architecture_id = selected_adapter
+            label = ARCHITECTURE_LABELS[architecture_id]
+            try:
+                adapter = ARCHITECTURE_FACTORIES[architecture_id]()
+            except Exception as error:
+                notify(architecture_id, "failed")
+                return failed_architecture(architecture_id, label, error)
+        else:
+            adapter = selected_adapter
+            architecture_id = adapter.architecture_id
+            label = adapter.label
+
+        notify(architecture_id, "running")
+        source = stt_report["engines"].get(adapter.stt_engine_key)
+        if source is None:
+            result = failed_architecture(
+                architecture_id,
+                label,
+                f"STT report omitted engine {adapter.stt_engine_key}.",
+            )
+        elif source.get("error"):
+            result = failed_architecture(
+                architecture_id,
+                label,
+                f"STT failed: {source['error']}",
+            )
+        else:
+            try:
+                result = adapter.run(source)
+            except Exception as error:
+                result = failed_architecture(architecture_id, label, error)
+        notify(architecture_id, "done" if result["status"] == "succeeded" else "failed")
+        return result
+
+    with ThreadPoolExecutor(max_workers=len(selected), thread_name_prefix="architecture") as pool:
+        results = list(pool.map(run_one, selected))
+    return {result["architecture_id"]: result for result in results}
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -41,12 +106,12 @@ def _update(job_id: str, **fields) -> None:
 def get(job_id: str) -> dict | None:
     with _lock:
         job = _jobs.get(job_id)
-        return dict(job) if job else None
+        return deepcopy(job) if job else None
 
 
 def list_all() -> list[dict]:
     with _lock:
-        jobs = [dict(job) for job in _jobs.values()]
+        jobs = [deepcopy(job) for job in _jobs.values()]
     return sorted(jobs, key=lambda job: job["created_at"], reverse=True)
 
 
@@ -75,6 +140,12 @@ def _run(job_id: str, audio: Path, transcript: Path | None) -> None:
             transcript,
             on_progress,
             channel_map=channel_map or None,
+        )
+        report["architectures"] = run_architectures(
+            report,
+            on_progress=lambda architecture_id, state: _update_architecture_progress(
+                job_id, architecture_id, state
+            ),
         )
     except Exception as error:
         _update(
@@ -111,6 +182,8 @@ def submit(upload_id: str) -> dict:
         "scored": transcript is not None,
         "engines": {key: "pending" for key in stt.ENGINES},
         "engine_labels": dict(stt.ENGINES),
+        "architectures": {key: "pending" for key in ARCHITECTURE_LABELS},
+        "architecture_labels": dict(ARCHITECTURE_LABELS),
         "result": None,
         "error": None,
     }
@@ -118,4 +191,9 @@ def submit(upload_id: str) -> dict:
         _jobs[job_id] = job
 
     _pool.submit(_run, job_id, audio, transcript)
-    return dict(job)
+    return deepcopy(job)
+
+
+def _update_architecture_progress(job_id: str, architecture_id: str, state: str) -> None:
+    with _lock:
+        _jobs[job_id]["architectures"][architecture_id] = state

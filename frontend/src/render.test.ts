@@ -57,6 +57,16 @@ const succeededJob: Job = {
     "architecture-2-mai-transcribe-realtime": "2. MAI-Transcribe-1.5 real-time",
     "architecture-3-mai-transcribe-batch": "3. MAI-Transcribe-1.5 batch",
   },
+  architectures: {
+    "architecture-1-azure-language": "done",
+    "architecture-2-mai-realtime-deepseek": "done",
+    "architecture-3-mai-batch-deepseek": "done",
+  },
+  architecture_labels: {
+    "architecture-1-azure-language": "1. Azure Speech + Azure Language",
+    "architecture-2-mai-realtime-deepseek": "2. MAI real-time + DeepSeek",
+    "architecture-3-mai-batch-deepseek": "3. MAI batch + DeepSeek",
+  },
   error: null,
   result: {
     audio_seconds: 60,
@@ -220,7 +230,10 @@ test("a succeeded job renders the metrics table and transcripts", () => {
   expect(text).toContain("62.1s"); // batch transcript-ready time
   expect(text).toContain("Scored against 166 reference words");
   expect(text).toContain("[1.00s] REP:");
-  expect(node.querySelectorAll("tbody tr").length).toBe(2);
+  expect(text).toContain("Estimated processing cost");
+  expect(text).toContain("Discounted total");
+  expect(text).toContain("90% on Azure Speech and MAI-Transcribe");
+  expect(node.querySelectorAll("table:first-of-type tbody tr").length).toBe(2);
   expect(node.querySelectorAll("details").length).toBe(4);
 });
 

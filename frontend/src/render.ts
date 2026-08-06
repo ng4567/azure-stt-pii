@@ -1,5 +1,6 @@
 /** Pure rendering helpers: state in, DOM out. */
 import type { EngineResult, Job, UploadMeta } from "./api.ts";
+import { estimateArchitectureCosts } from "./pricing.ts";
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -175,6 +176,37 @@ export function renderMetricsTable(
       `<tbody>${participantRows.join("")}</tbody>`;
     wrapper.append(heading, table);
   }
+
+  const costs = estimateArchitectureCosts(report);
+  const pricingHeading = document.createElement("h3");
+  pricingHeading.textContent = "Estimated processing cost";
+  const pricingTable = document.createElement("table");
+  pricingTable.innerHTML = `
+    <thead><tr><th>Architecture</th><th>Components</th><th>List total</th><th>Discounted total</th><th>Savings</th></tr></thead>
+    <tbody>${costs
+      .map(
+        (estimate) => `<tr>
+          <td>${estimate.label}</td>
+          <td>${estimate.components
+            .map((component) => `${component.label}: ${component.usage} ($${component.listCost?.toFixed(4) ?? "—"} list → $${component.discountedCost?.toFixed(4) ?? "—"})`)
+            .join("<br>")}</td>
+          <td class="numeric">$${estimate.listTotal.toFixed(4)}</td>
+          <td class="numeric">$${estimate.discountedTotal.toFixed(4)}</td>
+          <td class="numeric">$${(estimate.listTotal - estimate.discountedTotal).toFixed(4)}</td>
+        </tr>`,
+      )
+      .join("")}</tbody>`;
+  const missingRates = [...new Set(costs.flatMap((estimate) =>
+    estimate.components.flatMap((component) => component.missing ? [component.missing] : []),
+  ))];
+  const pricingNote = document.createElement("p");
+  pricingNote.className = "row-meta";
+  pricingNote.textContent =
+    `Applied discounts: 90% on Azure Speech and MAI-Transcribe; 70% on Conversation PII and summarization; no DeepSeek discount. ` +
+    (missingRates.length ? `Missing usage: ${missingRates.join("; ")}. ` : "") +
+    `Audio estimates multiply duration by channel count. DeepSeek cached-input pricing is configured but unused because cache usage is not reported. ` +
+    `Hosting, storage, logging, and Voice Live host-model charges are excluded.`;
+  wrapper.append(pricingHeading, pricingTable, pricingNote);
 
   for (const [, entry] of entries) {
     if (!entry.transcript && !entry.conversation) continue;

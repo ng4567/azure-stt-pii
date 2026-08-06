@@ -1,24 +1,100 @@
-The point of this repo is to give cost comparison between two Architectures for transcribing Speech to Text and then summarizing the summary and redacting the transcript. We will benchmark both total cost and latency.
+This repository compares the cost, latency, and quality of end-to-end call-processing
+architectures: speech-to-text, PII redaction, and summarization. Three architectures
+are implemented and benchmarked today; a fourth is reserved for future exploration.
 
+# Architecture 1 - Azure Speech + Azure Language
 
-# Architecture 1 - Current State
+- **STT:** [Azure Speech real-time transcription](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-to-text)
+- **PII redaction:** [Conversation PII in Azure AI Language](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/conversation-pii-overview)
+- **Summary:** Azure AI Language abstractive/conversation summarization
 
-- STT Model: [Azure Speech Transcriber Real Time](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-to-text)
-- PII Redactor: [Conversation PII redaction in Azure AI Language](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/conversation-pii-overview)
-- Summarizer: [Azure Language Abstractive Summarization](https://learn.microsoft.com/en-us/azure/ai-services/language-service/summarization/how-to/summarize?tabs=text-summarization#try-text-abstractive-summarization)
+Conversation PII and summarization both receive the original, unmodified transcript,
+including PII. This matches the client-confirmed production flow. After both service
+calls finish, a deterministic sanitization pass checks every PII entity identified by
+Conversation PII against the generated summary and replaces matches with typed
+placeholders such as `[PERSON]` and `[PHONE_NUMBER]`.
 
-# Architecture 2 - Modernized Version
+Issue/resolution summarization requires Azure's `Agent` and `Customer` participant
+roles. The adapter projects benchmark labels such as `REP` and `CUSTOMER` to those
+roles for the summarization request only; source turns and PII input remain unchanged.
 
-This architecture will attempt to beat the performance and cost of the original redactor by using 1 LLM with a combination of regex and the LLM's system prompt to have the PII redacted and the summarization in 1 step. It also uses a newer MAI model compared to the old Azure Speech Transcriber
+# Architecture 2 - MAI real-time + DeepSeek
 
-STT: MAI-Transcribe-1.5
-Summarizer: Foundry LLM
-PII Redactor: Regex + LLM
+- **STT:** MAI-Transcribe-1.5 through Voice Live, committed at local VAD boundaries
+- **PII redaction + summary:** one structured-output DeepSeek call hosted in Foundry,
+  assisted by deterministic regex candidates
 
-# Architecture 3 - Azure Communication Services (Potentially Explore Later but not now)
+The DeepSeek endpoint and deployment come from `AZURE_FOUNDRY_ENDPOINT` and
+`AZURE_FOUNDRY_DEPLOYMENT`. The complete contents of `data/system_prompt.txt` are
+passed unchanged as the LLM system message. The model returns a redacted canonical
+conversation and summary in one response; the same deterministic summary sanitizer
+provides defense in depth.
 
-STT + PII all in one directly from the call real time
-Summarizer with LLM or Azure Summarizer
+# Architecture 3 - MAI batch + DeepSeek
+
+Architecture 3 uses the same DeepSeek redaction/summarization stage and prompt as
+Architecture 2, but runs MAI-Transcribe-1.5 after the call against VAD-delimited
+utterances. Keeping it separate makes the latency/cost tradeoff between real-time and
+post-call STT explicit while preserving an identical downstream output contract.
+
+# Architecture 4 - Azure Communication Services (future)
+
+This option may combine real-time call audio, STT, and PII handling through Azure
+Communication Services, followed by an LLM or Azure Language summary. It is not
+implemented or included in the current three-way benchmark.
+
+## Common backend output
+
+Every implemented architecture emits the same versioned JSON shape: architecture
+identity and status, original transcript/conversation, redacted
+transcript/conversation, sanitized summary, normalized PII entities, and metrics for
+the `stt`, `pii_redaction`, `summarization`, and `summary_sanitization` stages. One
+failed architecture is reported independently and does not discard successful peers.
+
+## Backend service configuration
+
+Local development loads an ignored repository-root `.env`; deployed environments
+should inject the same names directly. Authentication remains Microsoft Entra ID via
+`DefaultAzureCredential`--no service keys are stored in this repository.
+
+```dotenv
+AZURE_LANGUAGE_ENDPOINT=https://<language-resource>.cognitiveservices.azure.com
+AZURE_FOUNDRY_ENDPOINT=https://<foundry-resource>.cognitiveservices.azure.com
+AZURE_FOUNDRY_DEPLOYMENT=<deepseek-deployment-name>
+# Optional overrides:
+AZURE_LANGUAGE_API_VERSION=2024-11-01
+AZURE_FOUNDRY_API_VERSION=2025-04-01-preview
+AZURE_FOUNDRY_MAX_ATTEMPTS=2
+SYSTEM_PROMPT_PATH=data/system_prompt.txt
+AZURE_REQUEST_TIMEOUT_SECONDS=300
+```
+
+`AZURE_LANGUAGE_ENDPOINT` must be the Language resource's Cognitive Services
+data-plane endpoint (for example,
+`https://finance-app-resource.cognitiveservices.azure.com`). A Foundry project URL
+such as `https://<resource>.services.ai.azure.com/api/projects/<project>` is a project
+management endpoint and does not expose the Conversation Analysis job route used by
+Architecture 1.
+
+`data/system_prompt.txt` is runtime configuration and is copied into the backend
+container. Its entire content is used verbatim as the DeepSeek system message.
+
+## Foundry infrastructure
+
+[`infra/main.bicep`](infra/main.bicep) creates the `stt-pii` resource group in East
+US, provisions a Microsoft Foundry resource, and deploys DeepSeek-V4 Flash using the
+Global Standard SKU. The deployment keeps local key authentication disabled.
+
+Deploy it with:
+
+```bash
+./infra/deploy.sh
+```
+
+The wrapper asserts that Azure CLI is installed and logged in before starting the
+subscription deployment. Use `--parameters foundryName=<globally-unique-name>` to
+override the generated Foundry resource name. The deployment outputs map directly to
+`AZURE_FOUNDRY_ENDPOINT` and `AZURE_FOUNDRY_DEPLOYMENT`.
 
 ---
 
@@ -184,10 +260,9 @@ The table below is the original 505s synthetic support call and
 989-word reference transcript. All three pipelines run
 concurrently, so a full pass costs about one call duration.
 
-Note: these are STT *variants*, numbered independently of the architecture sections
-above. Variants 1 and 2 are the STT stages of Architecture 1 and Architecture 2;
-variant 3 is Architecture 2's model in post-call batch mode, and is unrelated to the
-Azure Communication Services architecture.
+These STT variants map directly to the first three end-to-end architectures above:
+Azure Speech real-time, MAI real-time, and MAI batch. Azure Communication Services is
+Architecture 4 and is not part of this benchmark.
 
 | STT variant | Mode | WER | Accuracy | Mean lag | p95 lag | Transcript ready |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -209,46 +284,64 @@ Full findings, error breakdowns, and API gotchas: [`docs/stt-results.md`](docs/s
 
 ## Pricing
 
-List price, eastus, billed on **audio duration** rather than wall-clock or request
-count. The figures below apply to the original mono run, where variants 2 and 3
-process the same single audio stream.
+The comparison uses public list rates and the customer's contractual discounts:
+**90% off Speech** (including MAI-Transcribe), **70% off Azure Language**, and no
+discount on Foundry-hosted DeepSeek.
 
-| Engine | Rate | Source |
-| --- | --- | --- |
-| MAI-Transcribe-1.5 | $0.36 / audio hour | [Model catalog](https://ai.azure.com/catalog/models/MAI-Transcribe-1.5) |
-| Azure Speech, standard STT | $1.00 / audio hour | [Speech pricing](https://azure.microsoft.com/en-us/pricing/details/speech/) |
-| Azure Speech, diarization add-on | +$0.30 / audio hour | [Speech pricing](https://azure.microsoft.com/en-us/pricing/details/speech/) |
+| Component | List rate | Applied rate | Source |
+| --- | --- | --- | --- |
+| Azure Speech standard STT | $1.00 / submitted audio hour | $0.10 / hour | [Speech pricing](https://azure.microsoft.com/en-us/pricing/details/speech/) |
+| MAI-Transcribe-1.5 | $0.36 / submitted audio hour | $0.036 / hour | [Model catalog](https://ai.azure.com/catalog/models/MAI-Transcribe-1.5) |
+| Conversation PII, first 0.5M records | $1.00 / 1,000 text records | $0.30 / 1,000 | [Language pricing](https://azure.microsoft.com/en-us/pricing/details/language/) |
+| Conversation summarization | $7,000 / 10M text records | $2,100 / 10M | [Language pricing](https://azure.microsoft.com/en-us/pricing/details/language/) |
+| DeepSeek-V4 Flash Global input | $0.19 / 1M tokens | $0.19 / 1M | [DeepSeek pricing](https://azure.microsoft.com/en-us/pricing/details/ai-foundry-models/deepseek/) |
+| DeepSeek-V4 Flash Global cached input | $0.028 / 1M tokens | $0.028 / 1M | [DeepSeek pricing](https://azure.microsoft.com/en-us/pricing/details/ai-foundry-models/deepseek/) |
+| DeepSeek-V4 Flash Global output | $0.51 / 1M tokens | $0.51 / 1M | [DeepSeek pricing](https://azure.microsoft.com/en-us/pricing/details/ai-foundry-models/deepseek/) |
 
-**Diarization is not enabled in any benchmarked variant** and is excluded below.
-Variant 1 uses `SpeechRecognizer`, not `ConversationTranscriber`, and neither MAI path
-sets a speaker-separation option; speaker attribution here comes from the transcript's
-own `REP:` / `CUSTOMER:` labels. If a variant later needs service-side diarization, add
-$0.30/hr, taking Azure Speech to $1.30/hr and widening the gap to 3.6x.
+A text record is each started block of 1,000 characters. Conversation PII volume
+tiers are $1.00/1K for 0-0.5M records, $0.75 for 0.5-2.5M, $0.30 for 2.5-10M, and
+$0.25 above 10M; this benchmark uses the first tier. The 504.168-second stereo call
+submits two mono channels, or 0.280093 billable audio hours. Architecture 1 sends
+5,212 characters (6 records) to PII and 5,872 input-plus-output characters (6 records)
+to summarization. Measured DeepSeek usage is 6,906 input / 6,743 output tokens for
+Architecture 2 and 7,124 input / 6,816 output tokens for Architecture 3. No cached
+input was reported, so the cached-token rate contributes $0.
 
-The dual-channel pipeline also avoids diarization, but MAI requires two independently
-submitted mono streams. Do not double or reuse the mono price until Azure billing for
-that exact request pattern is verified; the conservative upper bound is 2x.
+| Architecture | List / call | Discounted / call | 1,000 calls | 100,000 calls |
+| --- | ---: | ---: | ---: | ---: |
+| 1. Azure Speech + Azure Language | $0.290293 | **$0.031069** | $31.07 | $3,099.43* |
+| 2. MAI real-time + DeepSeek | $0.105585 | **$0.014834** | $14.83 | $1,483.44 |
+| 3. MAI batch + DeepSeek | $0.105663 | **$0.014913** | $14.91 | $1,491.31 |
 
-The 505.8s benchmark call is 0.140507 audio hours.
+\*The 100,000-call Architecture 1 projection applies the supplied PII tiers across
+600,000 records: 500,000 records at $1.00/1K and 100,000 at $0.75/1K before the
+70% Azure Language discount. The per-call and 1,000-call figures remain in tier 1.
 
-| Engine | Per call | 1,000 calls | 100,000 calls | Per 1,000 audio hours |
-| --- | --- | --- | --- | --- |
-| MAI-Transcribe-1.5 (variants 2 and 3) | $0.0506 | $50.58 | $5,058 | $360 |
-| Azure Speech standard (variant 1) | $0.1405 | $140.51 | $14,051 | $1,000 |
-| *Azure Speech + diarization (not used)* | *$0.1827* | *$182.66* | *$18,266* | *$1,300* |
+With discounts, Architecture 2 is the cheapest measured pipeline: about **52.3% less
+than Architecture 1** per benchmark call and $1,615.99 less per 100,000 calls after
+applying the PII volume tier.
+Architecture 3 is only $0.000079 per call more than Architecture 2 because its measured
+DeepSeek response is slightly larger. The frontend calculates the same list and
+discounted totals for every new run from submitted audio duration, Azure Language
+characters, and DeepSeek usage returned across all retry attempts.
 
-MAI-Transcribe-1.5 is **2.78x cheaper** than standard Azure Speech STT while scoring
-roughly half the WER - it wins on cost and accuracy simultaneously on this workload.
-At 100k calls that is about **$8,993** saved.
+These totals exclude hosting, storage, logging, network egress, fixture TTS generation,
+and any separate Voice Live host-model charge. Diarization is disabled. Audio duration
+is conservatively multiplied by channel count because both channels are independently
+submitted.
 
-Excludes the LLM cost of Voice Live's mandatory `model=gpt-4.1` parameter, TTS costs
-for generating the test audio, and the downstream PII-redaction and summarization
-stages. List price only, with no commitment tiers or negotiated discounts.
+# TODO
+
+- [ ] Add proper PII-redaction accuracy calculation: maintain architecture-independent
+  ground-truth entity annotations for the reference transcript, align them with each
+  STT output, and report entity precision, recall, F1, category accuracy, and PII
+  leakage rate.
 
 # Running it
 
 The benchmark is driven from one action in the web UI. Upload a call recording and,
-optionally, a reference transcript, then all three architectures run concurrently.
+optionally, a reference transcript, then all three implemented architectures run
+concurrently.
 With no files selected, the action uses the built-in turn-ready mock call and its
 reference. A transcript-only submission uses the built-in audio with that transcript
 as the scoring reference. Word error rate is scored only when a reference is present;
