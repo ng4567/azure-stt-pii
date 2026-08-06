@@ -14,5 +14,6 @@ data/__pycache__
 !data/mock-call.wav
 !data/mock-call-stereo.wav
 !data/mock-call-transcript.txt
+!data/mock-call-pii-ground-truth.json
 !data/mock-call-stereo-stt-benchmark-results.json
 !data/system_prompt.txt

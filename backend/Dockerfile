@@ -29,6 +29,7 @@ COPY backend ./backend
 COPY data/stt.py data/conversation.py data/system_prompt.txt ./data/
 # The mock call is seeded as the default benchmark input on startup.
 COPY data/mock-call.wav data/mock-call-stereo.wav data/mock-call-transcript.txt \
+    data/mock-call-pii-ground-truth.json \
     data/mock-call-stereo-stt-benchmark-results.json ./data/
 
 ENV REPO_ROOT=/app \
