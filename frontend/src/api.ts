@@ -132,8 +132,13 @@ export interface ArchitectureResult {
   label: string;
   status: ArchitectureStatus;
   source: { transcript: string; conversation: Conversation } | null;
+  /**
+   * Successful summary-only architectures return null because they do not
+   * produce a transcript-redaction output.
+   */
   redacted: { transcript: string; conversation: Conversation } | null;
   summary: string | null;
+  /** Empty for successful summary-only architectures. */
   entities: PiiEntity[];
   stages: Record<string, ArchitectureStage>;
   latency: {

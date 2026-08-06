@@ -101,12 +101,14 @@ Deployed successfully on 2026-08-06 to Azure Container Apps in East US.
 | Public frontend | `https://ca-stt-pii-web.wittysand-9e0f9316.eastus.azurecontainerapps.io` |
 | Proxied health endpoint | `https://ca-stt-pii-web.wittysand-9e0f9316.eastus.azurecontainerapps.io/api/health` returned HTTP 200 with `{"status":"ok"}` |
 | Cached benchmark endpoint | `https://ca-stt-pii-web.wittysand-9e0f9316.eastus.azurecontainerapps.io/api/benchmark/default` returned HTTP 200 with the built-in benchmark payload |
-| Backend revision | `ca-stt-pii-api--0000001`, healthy, 100% traffic |
-| Frontend revision | `ca-stt-pii-web--0000002`, 100% traffic |
-| Backend image | `acrsttpiifd9180.azurecr.io/azure-stt-pii-backend:03aeb4625b15-20260806142150` |
-| Frontend image | `acrsttpiifd9180.azurecr.io/azure-stt-pii-frontend:proxy-host-fix-20260806143420` |
+| Backend revision | `ca-stt-pii-api--0000002`, healthy, 100% traffic |
+| Frontend revision | `ca-stt-pii-web--0000003`, healthy, 100% traffic |
+| Backend image | `acrsttpiifd9180.azurecr.io/azure-stt-pii-backend:worktree-bd4c1eb047d6-20260806155200` |
+| Frontend image | `acrsttpiifd9180.azurecr.io/azure-stt-pii-frontend:worktree-bd4c1eb047d6-20260806155200` |
 
 Live role verification passed for both `AcrPull` assignments and both backend `Cognitive Services User` assignments. The frontend proxy removes the incoming `Host` header before forwarding requests so ACA can route them to the backend's internal FQDN.
+
+The current repository worktree was redeployed and verified at `2026-08-06T15:59:01Z`. Backend tests passed (`51 passed`), frontend type checking passed, and frontend tests passed (`12 passed`).
 
 ## 9. Generated Artifacts
 

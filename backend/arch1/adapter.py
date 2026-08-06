@@ -240,6 +240,14 @@ class Architecture1Adapter:
         summary, replacements = sanitize_summary(raw_summary, entities)
         sanitization_seconds = self.clock() - started
         downstream_seconds = self.clock() - downstream_started
+        critical_path_seconds = (
+            max(pii_seconds, summary_seconds)
+            + transcript_redaction_seconds
+            + sanitization_seconds
+        )
+        backend_overhead_seconds = max(
+            0.0, downstream_seconds - critical_path_seconds
+        )
         stages = {
             "stt": stt_stage(source_entry),
             "pii_endpoint": stage_result(
@@ -266,6 +274,11 @@ class Architecture1Adapter:
             "summary_sanitization": stage_result(
                 "succeeded", provider="local", model="typed entity replacement",
                 wall_seconds=sanitization_seconds, metrics={"replacement_count": replacements},
+            ),
+            "backend_overhead": stage_result(
+                "succeeded", provider="local",
+                model="parallel join and uninstrumented orchestration",
+                wall_seconds=backend_overhead_seconds,
             ),
         }
         return architecture_result(

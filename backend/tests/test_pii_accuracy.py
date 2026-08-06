@@ -93,7 +93,7 @@ class ProjectionAndScoringTests(unittest.TestCase):
         self.assertEqual(score["false_positives"], 1)
         self.assertEqual(score["precision"], 0.5)
 
-    def test_architecture_scoring_skips_failed_results(self) -> None:
+    def test_architecture_scoring_includes_full_output_and_skips_failed_results(self) -> None:
         reference = "Call Maya now"
         truth = [GroundTruthEntity("PERSON", "Maya", 5, 4)]
         report = {
@@ -101,6 +101,7 @@ class ProjectionAndScoringTests(unittest.TestCase):
                 "ok": {
                     "status": "succeeded",
                     "source": {"conversation": conversation("Call Maya now")},
+                    "redacted": {"conversation": conversation("Call [PERSON] now")},
                     "entities": [{"category": "PERSON", "text": "Maya", "turn_id": "turn-1", "offset": 5, "length": 4, "confidence": None}],
                 },
                 "failed": {"status": "failed", "source": None, "entities": []},
@@ -110,6 +111,22 @@ class ProjectionAndScoringTests(unittest.TestCase):
         self.assertEqual(set(scores), {"ok"})
         self.assertEqual(scores["ok"]["alignment_rate"], 1.0)
         self.assertEqual(scores["ok"]["f1"], 1.0)
+
+    def test_architecture_scoring_excludes_summary_only_results(self) -> None:
+        reference = "Call Maya now"
+        truth = [GroundTruthEntity("PERSON", "Maya", 5, 4)]
+        report = {
+            "architectures": {
+                "summary-only": {
+                    "status": "succeeded",
+                    "source": {"conversation": conversation("Call Maya now")},
+                    "redacted": None,
+                    "summary": "The caller requested contact with [PERSON].",
+                    "entities": [],
+                },
+            }
+        }
+        self.assertEqual(score_architectures(report, reference, truth), {})
 
 
 if __name__ == "__main__":

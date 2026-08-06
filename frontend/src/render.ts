@@ -59,10 +59,11 @@ const STAGE_LABELS: Record<string, string> = {
   summarizer_endpoint: "Summarizer endpoint",
   regex_detection: "Regex candidate scan",
   request_preparation: "Backend request preparation + Entra auth",
-  llm_api_call: "LLM API call (PII + summary)",
+  llm_api_call: "LLM API call (sanitized summary)",
   response_validation: "Backend response validation",
   transcript_redaction: "Transcript entity redaction",
   summary_sanitization: "Summary entity redaction",
+  backend_overhead: "Backend orchestration overhead",
   pii_redaction: "PII redaction",
   summarization: "Summarization",
 };
@@ -83,6 +84,10 @@ function stageDuration(stageKey: string, stage: ArchitectureStage): number {
     if (typeof ready === "number" && Number.isFinite(ready)) return ready;
   }
   return stage.wall_seconds;
+}
+
+function isSummaryOnly(result: ArchitectureResult): boolean {
+  return result.status === "succeeded" && result.redacted === null;
 }
 
 function renderArchitectureResults(
@@ -132,7 +137,7 @@ function renderArchitectureResults(
         return `<tr><td>${result.label}</td><td colspan="3">failed: ${result.error ?? "unknown error"}</td></tr>`;
       }
       return `<tr>
-        <td>${result.label}</td>
+        <td>${result.label}${isSummaryOnly(result) ? " · sanitized summary only" : ""}</td>
         ${winnerCell(
           `<strong>${formatSeconds(result.latency.end_to_end_seconds)}</strong>`,
           result.latency.end_to_end_seconds,
@@ -155,14 +160,16 @@ function renderArchitectureResults(
   const note = document.createElement("p");
   note.className = "row-meta";
   note.textContent =
-    "End to end runs from the start of the call until the sanitized summary and redacted transcript are ready. Parallel endpoint times overlap and are not added together.";
+    "End to end runs from the start of the call until each architecture's declared final outputs are ready. Parallel endpoint times overlap and are not added together.";
   section.append(note);
 
   for (const result of entries) {
     const details = document.createElement("details");
     details.className = "architecture-detail";
     const summary = document.createElement("summary");
-    summary.textContent = `Pipeline stages and outputs — ${result.label}`;
+    summary.textContent = `Pipeline stages and outputs — ${result.label}${
+      isSummaryOnly(result) ? " — sanitized summary only" : ""
+    }`;
     details.append(summary);
 
     if (result.status === "failed") {
@@ -172,6 +179,14 @@ function renderArchitectureResults(
       details.append(error);
       section.append(details);
       continue;
+    }
+
+    if (isSummaryOnly(result)) {
+      const outputNote = document.createElement("p");
+      outputNote.className = "row-meta";
+      outputNote.textContent =
+        "Sanitized summary only; this architecture does not produce a redacted transcript or transcript entities.";
+      details.append(outputNote);
     }
 
     const stages = document.createElement("table");

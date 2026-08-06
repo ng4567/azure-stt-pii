@@ -117,6 +117,45 @@ def architecture_result(
     }
 
 
+def summary_only_architecture_result(
+    *,
+    architecture_id: str,
+    label: str,
+    source_entry: Mapping[str, Any],
+    summary: str,
+    stages: Mapping[str, Mapping[str, Any]],
+    downstream_wall_seconds: float,
+) -> dict[str, Any]:
+    source_conversation = source_entry.get("conversation")
+    if not isinstance(source_conversation, Mapping):
+        raise ValueError("The STT stage did not produce a canonical conversation.")
+    source_metrics = source_entry.get("metrics")
+    metrics = source_metrics if isinstance(source_metrics, Mapping) else {}
+    stt_seconds = float(
+        metrics.get("time_to_full_transcript", metrics.get("wall_seconds", 0.0))
+    )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "architecture_id": architecture_id,
+        "label": label,
+        "status": "succeeded",
+        "source": {
+            "transcript": source_entry.get("transcript", ""),
+            "conversation": deepcopy(dict(source_conversation)),
+        },
+        "redacted": None,
+        "summary": summary,
+        "entities": [],
+        "stages": {key: dict(value) for key, value in stages.items()},
+        "latency": {
+            "stt_seconds": stt_seconds,
+            "downstream_seconds": downstream_wall_seconds,
+            "end_to_end_seconds": stt_seconds + downstream_wall_seconds,
+        },
+        "error": None,
+    }
+
+
 def stt_stage(source_entry: Mapping[str, Any]) -> dict[str, Any]:
     metrics = dict(source_entry.get("metrics") or {})
     mode = str(metrics.get("mode", "speech-to-text"))

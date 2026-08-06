@@ -1,6 +1,12 @@
 import unittest
 
-from backend.contracts import PiiEntity, architecture_result, stage_result, stt_stage
+from backend.contracts import (
+    PiiEntity,
+    architecture_result,
+    stage_result,
+    stt_stage,
+    summary_only_architecture_result,
+)
 from backend.redaction import (
     apply_entities,
     entities_from_redacted_conversation,
@@ -139,7 +145,7 @@ class ContractTests(unittest.TestCase):
             batch["model"], "MAI-Transcribe-1.5 batch (113 VAD requests)"
         )
 
-    def test_common_result_shape(self) -> None:
+    def test_full_output_result_shape(self) -> None:
         entity = PiiEntity("Person", "Eleanor", "turn-0001", 5, 7)
         result = architecture_result(
             architecture_id="architecture-test",
@@ -168,6 +174,8 @@ class ContractTests(unittest.TestCase):
         self.assertIn("summary", result)
         self.assertIn("entities", result)
         self.assertIn("stages", result)
+        self.assertIsNotNone(result["redacted"])
+        self.assertEqual(result["entities"], [entity.to_dict()])
         self.assertEqual(
             result["latency"],
             {
@@ -176,6 +184,52 @@ class ContractTests(unittest.TestCase):
                 "end_to_end_seconds": 0.2,
             },
         )
+
+    def test_summary_only_result_shape(self) -> None:
+        source_entry = {
+            "transcript": "Call Eleanor at 202-555-0148.",
+            "conversation": SOURCE_CONVERSATION,
+            "metrics": {"time_to_full_transcript": 1.5},
+        }
+        stages = {
+            "summary": stage_result(
+                "succeeded",
+                provider="test",
+                model="test",
+                wall_seconds=0.25,
+            )
+        }
+
+        result = summary_only_architecture_result(
+            architecture_id="architecture-test",
+            label="Summary Test",
+            source_entry=source_entry,
+            summary="Called [PERSON].",
+            stages=stages,
+            downstream_wall_seconds=0.25,
+        )
+
+        self.assertEqual(result["status"], "succeeded")
+        self.assertEqual(
+            result["source"],
+            {
+                "transcript": source_entry["transcript"],
+                "conversation": SOURCE_CONVERSATION,
+            },
+        )
+        self.assertEqual(result["summary"], "Called [PERSON].")
+        self.assertIsNone(result["redacted"])
+        self.assertEqual(result["entities"], [])
+        self.assertEqual(result["stages"], stages)
+        self.assertEqual(
+            result["latency"],
+            {
+                "stt_seconds": 1.5,
+                "downstream_seconds": 0.25,
+                "end_to_end_seconds": 1.75,
+            },
+        )
+        self.assertIsNone(result["error"])
 
 
 if __name__ == "__main__":

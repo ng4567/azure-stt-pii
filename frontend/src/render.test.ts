@@ -213,6 +213,94 @@ const succeededJob: Job = {
         },
         error: null,
       },
+      "architecture-2-mai-realtime-deepseek": {
+        schema_version: "1.0",
+        architecture_id: "architecture-2-mai-realtime-deepseek",
+        label: "2. MAI real-time + DeepSeek",
+        status: "succeeded",
+        source: {
+          transcript: "The customer requested account help.",
+          conversation: {
+            id: "clip-architecture-2",
+            language: "en",
+            modality: "transcript",
+            speakerAttributed: true,
+            channelMap: { "0": "REP", "1": "CUSTOMER" },
+            conversationItems: [],
+          },
+        },
+        redacted: null,
+        summary: "The [PERSON] requested account help.",
+        entities: [],
+        stages: {
+          stt: {
+            status: "succeeded",
+            provider: "Azure AI Foundry",
+            model: "MAI-Transcribe-1.5 real-time",
+            wall_seconds: 60.8,
+            metrics: { time_to_full_transcript: 60.8 },
+            error: null,
+          },
+          llm_api_call: {
+            status: "succeeded",
+            provider: "Azure AI Foundry",
+            model: "DeepSeek V4 Flash",
+            wall_seconds: 1.1,
+            metrics: { input_tokens: 900, output_tokens: 80 },
+            error: null,
+          },
+        },
+        latency: {
+          stt_seconds: 60.8,
+          downstream_seconds: 1.1,
+          end_to_end_seconds: 61.9,
+        },
+        error: null,
+      },
+      "architecture-3-mai-batch-deepseek": {
+        schema_version: "1.0",
+        architecture_id: "architecture-3-mai-batch-deepseek",
+        label: "3. MAI batch + DeepSeek",
+        status: "succeeded",
+        source: {
+          transcript: "The customer requested billing help.",
+          conversation: {
+            id: "clip-architecture-3",
+            language: "en",
+            modality: "transcript",
+            speakerAttributed: true,
+            channelMap: { "0": "REP", "1": "CUSTOMER" },
+            conversationItems: [],
+          },
+        },
+        redacted: null,
+        summary: "The [PERSON] requested billing help.",
+        entities: [],
+        stages: {
+          stt: {
+            status: "succeeded",
+            provider: "Azure AI Foundry",
+            model: "MAI-Transcribe-1.5 batch",
+            wall_seconds: 2.1,
+            metrics: { time_to_full_transcript: 62.1 },
+            error: null,
+          },
+          llm_api_call: {
+            status: "succeeded",
+            provider: "Azure AI Foundry",
+            model: "DeepSeek V4 Flash",
+            wall_seconds: 0.9,
+            metrics: { input_tokens: 850, output_tokens: 70 },
+            error: null,
+          },
+        },
+        latency: {
+          stt_seconds: 62.1,
+          downstream_seconds: 0.9,
+          end_to_end_seconds: 63,
+        },
+        error: null,
+      },
     },
     pii_accuracy: {
       "architecture-1": {
@@ -329,6 +417,15 @@ test("a succeeded job renders the metrics table and transcripts", () => {
   expect(text).toContain("62.00s");
   expect(text).toContain("Conversation PII endpoint");
   expect(text).toContain("[PERSON] requested help.");
+  expect(text).toContain("sanitized summary only");
+  expect(text).toContain(
+    "this architecture does not produce a redacted transcript or transcript entities",
+  );
+  expect(text).toContain("The [PERSON] requested account help.");
+  expect(text).toContain("The [PERSON] requested billing help.");
+  expect(text).not.toContain(
+    "until the sanitized summary and redacted transcript are ready",
+  );
   expect(text).toContain("96.00%");
   expect(text).toContain("24 / 1 / 1");
   expect(node.querySelector("h3")?.textContent).toBe("Estimated processing cost");
@@ -343,7 +440,19 @@ test("a succeeded job renders the metrics table and transcripts", () => {
     table.textContent?.includes("WER"),
   );
   expect(sttTable?.querySelectorAll("tbody tr").length).toBe(2);
-  expect(node.querySelectorAll("details").length).toBe(6);
+  expect(node.querySelectorAll("details").length).toBe(8);
+
+  const architectureDetails = [...node.querySelectorAll(".architecture-detail")];
+  const fullOutput = architectureDetails.find((details) =>
+    details.querySelector("summary")?.textContent?.includes("Azure Speech + Azure Language")
+  );
+  const summaryOnly = architectureDetails.filter((details) =>
+    details.querySelector("summary")?.textContent?.includes("sanitized summary only")
+  );
+  expect(fullOutput?.textContent).toContain("Redacted transcript");
+  expect(summaryOnly).toHaveLength(2);
+  expect(summaryOnly.every((details) => !details.textContent?.includes("Redacted transcript")))
+    .toBe(true);
 });
 
 test("winner highlighting is recalculated for each new report", () => {

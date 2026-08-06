@@ -93,15 +93,15 @@ test("prices the cached benchmark usage with confirmed rates and discounts", () 
       "architecture-1-azure-language": {
         pii_input_characters: 5_212,
         summary_input_characters: 5_212,
-        summary_output_characters: 660,
+        summary_output_characters: 618,
       },
       "architecture-2-mai-realtime-deepseek": {
-        deepseek_input_tokens: 6_901,
-        deepseek_output_tokens: 7_689,
+        deepseek_input_tokens: 6_981,
+        deepseek_output_tokens: 148,
       },
       "architecture-3-mai-batch-deepseek": {
-        deepseek_input_tokens: 7_119,
-        deepseek_output_tokens: 6_800,
+        deepseek_input_tokens: 7_199,
+        deepseek_output_tokens: 108,
       },
     },
   };
@@ -109,10 +109,10 @@ test("prices the cached benchmark usage with confirmed rates and discounts", () 
   const estimates = estimateArchitectureCosts(benchmarkReport);
   expect(estimates[0]!.listTotal).toBeCloseTo(0.290293, 6);
   expect(estimates[0]!.discountedTotal).toBeCloseTo(0.031069, 6);
-  expect(estimates[1]!.listTotal).toBeCloseTo(0.106066, 6);
-  expect(estimates[1]!.discountedTotal).toBeCloseTo(0.015316, 6);
-  expect(estimates[2]!.listTotal).toBeCloseTo(0.105654, 6);
-  expect(estimates[2]!.discountedTotal).toBeCloseTo(0.014904, 6);
+  expect(estimates[1]!.listTotal).toBeCloseTo(0.102235, 6);
+  expect(estimates[1]!.discountedTotal).toBeCloseTo(0.011485, 6);
+  expect(estimates[2]!.listTotal).toBeCloseTo(0.102256, 6);
+  expect(estimates[2]!.discountedTotal).toBeCloseTo(0.011506, 6);
 });
 
 test("does not present missing usage as a zero-cost component", () => {

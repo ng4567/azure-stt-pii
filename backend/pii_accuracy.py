@@ -206,7 +206,14 @@ def score_architectures(
         if not isinstance(result, Mapping):
             continue
         source = result.get("source")
-        if result.get("status") != "succeeded" or not isinstance(source, Mapping):
+        redacted = result.get("redacted")
+        entities = result.get("entities")
+        if (
+            result.get("status") != "succeeded"
+            or not isinstance(source, Mapping)
+            or not isinstance(redacted, Mapping)
+            or not isinstance(entities, list)
+        ):
             continue
         expected, unaligned = project_ground_truth(reference_text, source["conversation"], truth)
         predicted = [
@@ -218,7 +225,7 @@ def score_architectures(
                 length=int(entity["length"]),
                 confidence=entity.get("confidence"),
             )
-            for entity in result.get("entities", [])
+            for entity in entities
         ]
         scores[architecture_id] = {
             **score_entities(expected, predicted),

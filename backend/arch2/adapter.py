@@ -1,4 +1,4 @@
-"""DeepSeek redaction and summarization adapter for canonical MAI STT output."""
+"""DeepSeek summary adapter for canonical MAI STT output."""
 
 from __future__ import annotations
 
@@ -15,12 +15,7 @@ from azure.identity import DefaultAzureCredential
 
 from backend.app import config
 from backend.architecture import ARCHITECTURE_LABELS
-from backend.contracts import architecture_result, stage_result, stt_stage
-from backend.redaction import (
-    apply_entities,
-    entities_from_redacted_conversation,
-    sanitize_summary,
-)
+from backend.contracts import stage_result, stt_stage, summary_only_architecture_result
 
 ARCHITECTURE_ID = "architecture-2-mai-realtime-deepseek"
 STT_ENGINE_KEY = "architecture-2-mai-transcribe-realtime"
@@ -34,6 +29,7 @@ _HINT_PATTERNS = {
     "IP_ADDRESS": re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
     "DATE_OF_BIRTH": re.compile(r"\b(?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12]\d|3[01])[/-](?:19|20)\d{2}\b"),
 }
+_TYPED_PLACEHOLDER = re.compile(r"\[([A-Z][A-Z0-9]*(?:[ _-][A-Z0-9]+)*)\]")
 
 
 def detect_regex_hints(conversation: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -82,41 +78,49 @@ def _api_version_params(chat_url: str) -> dict[str, str] | None:
 _RESPONSE_SCHEMA = {
     "type": "json_schema",
     "json_schema": {
-        "name": "redacted_call",
+        "name": "pii_safe_call_summary",
         "strict": True,
         "schema": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["summary", "conversation"],
+            "required": ["summary"],
             "properties": {
                 "summary": {"type": "string"},
-                "conversation": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["conversationItems"],
-                    "properties": {
-                        "conversationItems": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": False,
-                                "required": ["id", "participantId", "channel", "offset", "duration", "text"],
-                                "properties": {
-                                    "id": {"type": "string"},
-                                    "participantId": {"type": "string"},
-                                    "channel": {"type": "integer"},
-                                    "offset": {"type": "integer"},
-                                    "duration": {"type": "integer"},
-                                    "text": {"type": "string"},
-                                },
-                            },
-                        }
-                    },
-                },
             },
         },
     },
 }
+
+
+def sanitize_summary_with_hints(
+    summary: str, hints: list[dict[str, Any]]
+) -> tuple[str, int]:
+    """Replace locally detected candidate literals in a model-generated summary."""
+    sanitized = summary
+    replacements = 0
+    unique = {
+        (str(hint["text"]).casefold(), str(hint["text"]), str(hint["category"]))
+        for hint in hints
+        if str(hint.get("text", "")).strip()
+    }
+    for _, literal, category in sorted(
+        unique, key=lambda value: len(value[1]), reverse=True
+    ):
+        prefix = r"(?<!\w)" if literal[0].isalnum() or literal[0] == "_" else ""
+        suffix = r"(?!\w)" if literal[-1].isalnum() or literal[-1] == "_" else ""
+        placeholder = f"[{'_'.join(category.upper().replace('-', ' ').split()) or 'PII'}]"
+        sanitized, count = re.subn(
+            prefix + re.escape(literal) + suffix,
+            placeholder,
+            sanitized,
+            flags=re.IGNORECASE,
+        )
+        replacements += count
+    sanitized = _TYPED_PLACEHOLDER.sub(
+        lambda match: "[" + "_".join(match.group(1).replace("-", " ").split()) + "]",
+        sanitized,
+    )
+    return sanitized, replacements
 
 
 class DeepSeekProcessor:
@@ -167,9 +171,11 @@ class DeepSeekProcessor:
         user_content = json.dumps(
             {
                 "instruction": (
-                    "Return JSON matching the supplied response schema. Redact every PII value "
-                    "with a typed [CATEGORY] placeholder, preserve every turn's id, participantId, "
-                    "channel, offset, and duration exactly, and summarize only the redacted content."
+                    "Return only JSON matching the supplied response schema with one concise call "
+                    "summary. Replace every PII value with a typed [CATEGORY] placeholder such as "
+                    "[PERSON], [PHONE_NUMBER], or [DATE_OF_BIRTH]. Do not reproduce the "
+                    "conversation, individual turns, speaker labels, timestamps, IDs, channel "
+                    "metadata, or any raw PII."
                 ),
                 "canonicalConversation": source_snapshot,
                 "regexCandidateHints": regex_hints,
@@ -187,7 +193,6 @@ class DeepSeekProcessor:
             "response_format": _RESPONSE_SCHEMA,
             "temperature": 0,
         }
-        started = self.clock()
         chat_url = _chat_url(self.endpoint, self.deployment)
         request_kwargs = {
             "headers": {"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
@@ -215,10 +220,7 @@ class DeepSeekProcessor:
                 if isinstance(usage, Mapping):
                     input_tokens += int(usage.get("prompt_tokens", 0) or 0)
                     output_tokens += int(usage.get("completion_tokens", 0) or 0)
-                payload = self._parse_response(response_payload, source_snapshot)
-                entities = entities_from_redacted_conversation(
-                    source_snapshot, payload["conversation"]
-                )
+                payload = self._parse_response(response_payload)
             except ValueError as exc:
                 validation_error = exc
             else:
@@ -230,13 +232,19 @@ class DeepSeekProcessor:
             raise validation_error
 
         started = self.clock()
-        redacted = apply_entities(source_snapshot, entities)
-        transcript_redaction_seconds = self.clock() - started
-
-        started = self.clock()
-        summary, replacements = sanitize_summary(payload["summary"], entities)
+        summary, replacements = sanitize_summary_with_hints(
+            payload["summary"], regex_hints
+        )
         sanitization_seconds = self.clock() - started
         downstream_seconds = self.clock() - downstream_started
+        measured_seconds = (
+            regex_seconds
+            + preparation_seconds
+            + api_seconds
+            + validation_seconds
+            + sanitization_seconds
+        )
+        backend_overhead_seconds = max(0.0, downstream_seconds - measured_seconds)
         if source_snapshot != source:
             raise RuntimeError("Source conversation was mutated during processing.")
 
@@ -256,8 +264,8 @@ class DeepSeekProcessor:
                 "succeeded", provider="Azure AI Foundry", model=self.deployment,
                 wall_seconds=api_seconds,
                 metrics={
-                    "combined_pii_and_summary": True,
-                    "entity_count": len(entities),
+                    "summary_only": True,
+                    "output_semantics": "pii_safe_summary_only",
                     "attempts": attempt,
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
@@ -266,52 +274,38 @@ class DeepSeekProcessor:
             ),
             "response_validation": stage_result(
                 "succeeded", provider="local",
-                model="JSON schema validation and entity alignment",
+                model="strict summary-only JSON validation",
                 wall_seconds=validation_seconds,
             ),
-            "transcript_redaction": stage_result(
-                "succeeded", provider="local", model="typed entity replacement",
-                wall_seconds=transcript_redaction_seconds,
-                metrics={"entity_count": len(entities)},
-            ),
             "summary_sanitization": stage_result(
-                "succeeded", provider="local", model="deterministic-literal-replacement",
+                "succeeded", provider="local",
+                model="regex-candidate literal replacement",
                 wall_seconds=sanitization_seconds,
                 metrics={"replacement_count": replacements},
             ),
+            "backend_overhead": stage_result(
+                "succeeded", provider="local",
+                model="thread scheduling and uninstrumented orchestration",
+                wall_seconds=backend_overhead_seconds,
+            ),
         }
-        return architecture_result(
+        return summary_only_architecture_result(
             architecture_id=architecture_id, label=label,
-            source_entry=source_entry, redacted_conversation=redacted,
-            summary=summary, entities=entities, stages=stages,
+            source_entry=source_entry, summary=summary, stages=stages,
             downstream_wall_seconds=downstream_seconds,
         )
 
     @staticmethod
-    def _parse_response(raw: Any, source: Mapping[str, Any]) -> dict[str, Any]:
+    def _parse_response(raw: Any) -> dict[str, Any]:
         try:
             content = raw["choices"][0]["message"]["content"]
             parsed = json.loads(content)
         except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
             raise ValueError("DeepSeek returned malformed structured JSON.") from exc
-        if not isinstance(parsed, dict) or set(parsed) != {"summary", "conversation"}:
-            raise ValueError("DeepSeek response must contain only summary and conversation.")
-        if not isinstance(parsed["summary"], str) or not isinstance(parsed["conversation"], dict):
-            raise ValueError("DeepSeek response has invalid summary or conversation types.")
-        returned_items = parsed["conversation"].get("conversationItems")
-        source_items = source.get("conversationItems")
-        if set(parsed["conversation"]) != {"conversationItems"}:
-            raise ValueError("DeepSeek conversation contains unexpected fields.")
-        if not isinstance(returned_items, list) or len(returned_items) != len(source_items):
-            raise ValueError("DeepSeek response does not preserve the conversation turns.")
-        metadata = ("id", "participantId", "channel", "offset", "duration")
-        for original, returned in zip(source_items, returned_items, strict=True):
-            if not isinstance(returned, dict) or not isinstance(returned.get("text"), str):
-                raise ValueError("DeepSeek returned an invalid conversation item.")
-            if set(returned) != {*metadata, "text"}:
-                raise ValueError("DeepSeek conversation item contains unexpected fields.")
-            if any(returned.get(key) != original.get(key) for key in metadata):
-                raise ValueError("DeepSeek changed canonical conversation metadata.")
+        if not isinstance(parsed, dict) or set(parsed) != {"summary"}:
+            raise ValueError("DeepSeek response must contain only summary.")
+        if not isinstance(parsed["summary"], str):
+            raise ValueError("DeepSeek response summary must be a string.")
         return parsed
 
 

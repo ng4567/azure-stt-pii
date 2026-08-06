@@ -38,9 +38,8 @@ one call duration rather than three.
 | 2 | MAI-Transcribe-1.5 | Voice Live WebSocket | real-time, utterance micro-batch |
 | 3 | MAI-Transcribe-1.5 | Fast-transcription REST | post-call VAD utterances |
 
-These variant numbers are independent of the architecture sections in the README.
-Variants 1 and 2 are the STT stages of Architecture 1 and Architecture 2; variant 3
-is Architecture 2's model in post-call batch mode.
+These variants map to the end-to-end architectures in the README: variant 1 is
+Architecture 1, variant 2 is Architecture 2, and variant 3 is Architecture 3.
 
 ---
 
@@ -48,14 +47,14 @@ is Architecture 2's model in post-call batch mode.
 
 ### Dual-channel, turn-ready run
 
-Generated August 5, 2026 from `mock-call-stereo.wav` (504.168s), with REP on channel 0,
+Refreshed August 6, 2026 from `mock-call-stereo.wav` (504.168s), with REP on channel 0,
 CUSTOMER on channel 1, and 113 channel-local VAD utterances.
 
 | Variant | WER | Accuracy | Mean lag | p95 lag | Transcript ready | Turns |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1. Azure Speech real-time | 5.36% | 94.64% | 0.76s | 0.92s | 504.3s | 85 |
-| 2. MAI real-time | **3.34%** | **96.66%** | 0.83s | 1.02s | **504.4s** | 112 |
-| 3. MAI post-call VAD utterances | 4.15% | 95.85% | 17.75s turnaround | n/a | 521.9s | 112 |
+| 1. Azure Speech real-time | 5.36% | 94.64% | 0.77s | 0.93s | 504.95s | 85 |
+| 2. MAI real-time | **3.34%** | **96.66%** | 0.79s | 0.94s | **504.42s** | 112 |
+| 3. MAI post-call VAD utterances | 4.15% | 95.85% | 16.86s turnaround | n/a | 521.03s | 112 |
 
 | Variant | REP WER | CUSTOMER WER |
 | --- | --- | --- |
@@ -74,7 +73,7 @@ despite the general fast-transcription feature table advertising segment timesta
 Those two channel-sized strings cannot be interleaved into trustworthy turns.
 Variant 3 therefore sends the 113 channel-local VAD utterances concurrently after the
 call. This preserves measured offsets and valid Conversation PII items, at the cost of
-request fan-out and 17.75s turnaround instead of the old 7.8s whole-file turnaround.
+request fan-out and 16.86s turnaround instead of the old 7.8s whole-file turnaround.
 
 ### Original mono baseline
 
@@ -99,7 +98,7 @@ when fed VAD-aligned utterances than when handed the whole call in one request.
 Raw metrics are persisted to `data/stt-benchmark-results.json`. Per-engine
 transcripts are written to `data/transcript-architecture-{1,2,3}-*.txt`.
 
-### Canonical turn output for downstream PII
+### Canonical turn output for downstream processing
 
 The benchmark no longer treats the flat transcript as its primary artifact. Every
 engine emits one canonical conversation containing chronological
@@ -119,9 +118,18 @@ benchmark-only channel and timing metadata.
 This contract follows the documented
 [Conversation PII transcript input](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/how-to/redact-conversation-pii):
 one asynchronous conversation per request, a list of participant-labelled turns, and
-a 1,000-character maximum per conversation item. Conversation PII integration itself
-is intentionally deferred; this benchmark now stops at a reusable input boundary for
-both that service and the regex + LLM architecture.
+a 1,000-character maximum per conversation item. Architecture 1 projects this object
+into the Conversation PII request. Architectures 2 and 3 send the canonical
+conversation to DeepSeek as summary context, but the model does not return a
+regenerated or redacted conversation.
+
+The downstream capabilities are intentionally asymmetric. Architecture 1 is the
+deprecated Azure Language full-redaction baseline and emits transcript entities plus
+a redacted conversation. Architectures 2 and 3 are modern DeepSeek summary-only
+alternatives and emit a strict PII-safe summary with `redacted: null` and
+`entities: []`. Transcript-level PII precision/recall/F1 therefore applies only to
+Architecture 1. Summary safety is a separate capability and is not measured by the
+transcript-span ground truth.
 
 For dual-channel input, channel identity replaces diarization:
 
@@ -428,5 +436,5 @@ transcript is supplied.
   averaging is performed.
 - No real call recordings have been tested; all conclusions rest on synthetic audio.
 - Entra token refresh is not implemented - see section 6.
-- Cost figures cover STT only. The PII-redaction and summarization stages described in
-  the README are not yet implemented or priced.
+- This document's pricing figures cover STT only. Refreshed end-to-end summary-only
+  token, latency, and pricing evidence is documented in the README.

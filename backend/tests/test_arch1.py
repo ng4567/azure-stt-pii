@@ -244,6 +244,7 @@ class Architecture1Tests(unittest.TestCase):
                 "summarizer_endpoint",
                 "transcript_redaction",
                 "summary_sanitization",
+                "backend_overhead",
             },
         )
 
