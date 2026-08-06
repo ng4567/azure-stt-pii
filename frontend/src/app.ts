@@ -1,5 +1,6 @@
 /** UI for uploading call audio/transcripts and running the benchmark suite. */
 import { api } from "./api.ts";
+import { setupArchitectureTabs } from "./diagram.ts";
 import { renderCachedBenchmark, renderJobs, renderUploads } from "./render.ts";
 
 const POLL_INTERVAL_MS = 2000;
@@ -26,6 +27,11 @@ const defaultTranscriptDetails = el<HTMLDetailsElement>("default-transcript");
 const defaultTranscriptText = el<HTMLElement>("default-transcript-text");
 let defaultTranscriptLoaded = false;
 
+setupArchitectureTabs(
+  el<HTMLElement>("architecture-tabs"),
+  el<HTMLIFrameElement>("architecture-diagram-frame"),
+);
+
 function setMessage(text: string, kind: "" | "error" | "success" = ""): void {
   uploadMessage.textContent = text;
   uploadMessage.className = `message ${kind}`.trim();
@@ -39,10 +45,10 @@ async function refresh(): Promise<void> {
     });
     renderJobs(jobsPanel, jobs);
     backendStatus.textContent = "backend online";
-    backendStatus.className = "status-pill online";
+    backendStatus.className = "pill online";
   } catch (error) {
     backendStatus.textContent = `backend unreachable — ${(error as Error).message}`;
-    backendStatus.className = "status-pill offline";
+    backendStatus.className = "pill offline";
   }
 }
 

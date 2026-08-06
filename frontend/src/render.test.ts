@@ -241,6 +241,18 @@ const succeededJob: Job = {
             metrics: { time_to_full_transcript: 60.8 },
             error: null,
           },
+          request_preparation: {
+            status: "succeeded",
+            provider: "backend + Microsoft Entra ID",
+            model: "prompt serialization and token acquisition",
+            wall_seconds: 0.1,
+            metrics: {
+              source_turn_count: 112,
+              projected_segment_count: 56,
+              user_content_characters: 8012,
+            },
+            error: null,
+          },
           llm_api_call: {
             status: "succeeded",
             provider: "Azure AI Foundry",
@@ -423,12 +435,22 @@ test("a succeeded job renders the metrics table and transcripts", () => {
   );
   expect(text).toContain("The [PERSON] requested account help.");
   expect(text).toContain("The [PERSON] requested billing help.");
+  expect(text).toContain("112 turns → 56 compact segments · 8,012 prompt characters");
+  expect(text).toContain("900 input · 80 output tokens");
   expect(text).not.toContain(
     "until the sanitized summary and redacted transcript are ready",
   );
   expect(text).toContain("96.00%");
   expect(text).toContain("24 / 1 / 1");
-  expect(node.querySelector("h3")?.textContent).toBe("Estimated processing cost");
+  expect(
+    [...node.querySelectorAll("h3")].map((heading) => heading.textContent),
+  ).toEqual([
+    "End-to-end architecture latency",
+    "STT accuracy and latency",
+    "PII redaction accuracy",
+    "Estimated processing cost",
+    "Engine transcripts",
+  ]);
   const participantDetails = [...node.querySelectorAll("details")].find(
     (details) => details.querySelector("summary")?.textContent === "Per-participant WER",
   );
@@ -524,4 +546,103 @@ test("upload descriptions summarize audio and transcript", () => {
   expect(describeUpload(uploadWithBoth)).toContain("60s");
   expect(describeUpload(uploadWithBoth)).toContain("24.0 kHz mono");
   expect(describeUpload(transcriptOnly)).toContain("117 lines");
+});
+
+test("the scorecard leads with the winner of each benchmark dimension", () => {
+  const node = panel();
+  renderCachedBenchmark(node, succeededJob.result!);
+
+  const scorecard = node.querySelector(".scorecard");
+  expect(scorecard).toBeDefined();
+  expect(node.firstElementChild?.firstElementChild).toBe(scorecard!);
+
+  const kpis = [...node.querySelectorAll(".kpi")].map((kpi) => ({
+    label: kpi.querySelector(".kpi__label")?.textContent,
+    value: kpi.querySelector(".kpi__value")?.textContent,
+    meta: kpi.querySelector(".kpi__meta")?.textContent,
+  }));
+
+  expect(kpis.map((kpi) => kpi.label)).toEqual([
+    "Call length",
+    "Fastest end to end",
+    "Lowest cost",
+    "Best WER",
+    "Best PII F1",
+  ]);
+  expect(kpis[0]?.value).toBe("1m 0s");
+  // Architecture 2 finishes first, architecture 3 has the lowest WER.
+  expect(kpis[1]?.value).toBe("61.90s");
+  expect(kpis[1]?.meta).toBe("MAI real-time + DeepSeek");
+  expect(kpis[2]?.value?.startsWith("$")).toBe(true);
+  expect(kpis[2]?.meta).toContain("discounted");
+  expect(kpis[3]?.value).toBe("2.41%");
+  expect(kpis[3]?.meta).toBe("MAI-Transcribe-1.5 batch");
+  expect(kpis[4]?.value).toBe("96.00%");
+  expect(kpis[4]?.meta).toBe("Azure Speech + Azure Language");
+});
+
+test("the scorecard explains missing dimensions instead of faking a winner", () => {
+  const node = panel();
+  const { pii_accuracy: _, architectures: __, ...historical } = succeededJob.result!;
+  renderCachedBenchmark(node, { ...historical, scored: false });
+
+  const empty = [...node.querySelectorAll(".kpi--empty")].map(
+    (kpi) => kpi.querySelector(".kpi__meta")?.textContent,
+  );
+  expect(empty).toEqual(["no pipeline timings", "usage missing", "no ground truth"]);
+});
+
+test("PII rows resolve architecture labels from short report keys", () => {
+  const node = panel();
+  renderCachedBenchmark(node, succeededJob.result!);
+
+  const piiTable = [...node.querySelectorAll("table")].find((table) =>
+    table.textContent?.includes("PII leakage"),
+  );
+  const firstCell = piiTable?.querySelector("tbody td");
+  expect(firstCell?.textContent).toContain("Azure Speech + Azure Language");
+  expect(firstCell?.textContent).not.toContain("architecture-1");
+  expect(firstCell?.querySelector(".arch-cell__index")?.textContent).toBe("1");
+});
+
+test("a running job announces itself as busy and shows progress", () => {
+  const node = panel();
+  const running: Job = {
+    ...succeededJob,
+    id: "runningjob01",
+    status: "running",
+    finished_at: null,
+    result: null,
+    engines: {
+      "architecture-1-azure-speech-realtime": "running",
+      "architecture-2-mai-transcribe-realtime": "pending",
+      "architecture-3-mai-transcribe-batch": "pending",
+    },
+  };
+  renderJobs(node, [running], new Date("2026-08-05T19:17:03.000Z").getTime());
+
+  const card = node.querySelector(".job");
+  expect(card?.getAttribute("aria-busy")).toBe("true");
+  expect(card?.querySelector(".progress")).toBeDefined();
+  expect(node.textContent).toContain("running for 1m 0s");
+  expect(node.textContent).toContain("stream the call at 1x");
+});
+
+test("a lone comparable row is never crowned the winner", () => {
+  const node = panel();
+  renderCachedBenchmark(node, succeededJob.result!);
+
+  // The fixture scores PII for one architecture only, so there is nothing to beat.
+  const piiTable = [...node.querySelectorAll("table")].find((table) =>
+    table.textContent?.includes("PII leakage"),
+  );
+  expect(piiTable?.querySelectorAll("tbody tr").length).toBe(1);
+  expect(piiTable?.querySelectorAll(".winner").length).toBe(0);
+  expect(piiTable?.textContent).not.toContain("Best");
+
+  // Comparable tables keep their winners.
+  const sttTable = [...node.querySelectorAll("table")].find((table) =>
+    table.textContent?.includes("Primary latency"),
+  );
+  expect(sttTable?.querySelectorAll(".winner").length).toBeGreaterThan(0);
 });

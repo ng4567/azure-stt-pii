@@ -23,14 +23,15 @@ roles for the summarization request only; source turns and PII input remain unch
 # Architecture 2 - MAI real-time + DeepSeek
 
 - **STT:** MAI-Transcribe-1.5 through Voice Live, committed at local VAD boundaries
-- **Final output:** one strict, PII-safe summary from DeepSeek in Foundry, assisted by
-  deterministic regex candidates
+- **Final output:** one strict, PII-safe 80-120 word summary from DeepSeek in Foundry
 
 The DeepSeek endpoint and deployment come from `AZURE_FOUNDRY_ENDPOINT` and
 `AZURE_FOUNDRY_DEPLOYMENT`. The complete contents of `data/system_prompt.txt` are
-passed unchanged as the LLM system message. The canonical conversation is input
-context only. DeepSeek returns exactly `{ "summary": string }`; deterministic
-post-processing replaces any known candidate literal that leaks into that summary.
+passed unchanged as the LLM system message. DeepSeek receives only compact
+participant/text segments, with consecutive turns from the same participant
+coalesced; canonical IDs, timing/channel metadata, and local regex candidates are
+not sent. It returns exactly `{ "summary": string }`. Deterministic local
+post-processing replaces any regex-detected literal that leaks into the summary.
 This architecture deliberately does not regenerate or redact the transcript.
 
 # Architecture 3 - MAI batch + DeepSeek
@@ -242,9 +243,9 @@ long-lived service:
 
 | STT variant | Mode | WER | Accuracy | Mean lag | p95 lag | Transcript ready | Turns |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1. Azure Speech real-time | 2 incremental channel sessions | 5.36% | 94.64% | 0.77s | 0.93s | 504.95s | 85 |
-| 2. MAI real-time | 2 Voice Live channel sessions | **3.34%** | **96.66%** | **0.79s** | **0.94s** | **504.42s** | 112 |
-| 3. MAI post-call | 113 concurrent VAD-utterance requests | 4.15% | 95.85% | 16.86s turnaround | n/a | 521.03s | 112 |
+| 1. Azure Speech real-time | 2 incremental channel sessions | 5.36% | 94.64% | **0.76s** | **0.97s** | 504.72s | 85 |
+| 2. MAI real-time | 2 Voice Live channel sessions | **3.34%** | **96.66%** | 0.82s | 0.97s | **504.48s** | 112 |
+| 3. MAI post-call | 113 VAD requests, up to 8 concurrent | 4.04% | 95.96% | 16.57s turnaround | n/a | 520.73s | 112 |
 
 Per-participant WER:
 
@@ -258,7 +259,7 @@ MAI's whole-file enhanced response exposes one full-duration phrase per channel,
 cannot be converted into chronologically interleaved turns. Variant 3 therefore
 submits the already-detected post-call VAD utterances concurrently. It remains
 post-call and preserves real offsets, but request fan-out raises turnaround from the
-old 7.8s whole-file result to 16.86s.
+old 7.8s whole-file result to 16.57s.
 
 The cached result was refreshed through the supported asynchronous web/API benchmark
 on August 6, 2026. Architectures 2 and 3 completed with `redacted: null`,
@@ -266,9 +267,9 @@ on August 6, 2026. Architectures 2 and 3 completed with `redacted: null`,
 
 | Architecture | STT ready | Downstream | End to end |
 | --- | ---: | ---: | ---: |
-| 1. Azure Speech + Azure Language | 504.95s | 4.52s | 509.47s |
-| 2. MAI real-time + DeepSeek | **504.42s** | 3.68s | **508.10s** |
-| 3. MAI batch + DeepSeek | 521.03s | **2.20s** | 523.23s |
+| 1. Azure Speech + Azure Language | 504.72s | 4.58s | 509.30s |
+| 2. MAI real-time + DeepSeek | **504.48s** | **3.68s** | **508.16s** |
+| 3. MAI batch + DeepSeek | 520.73s | 5.46s | 526.20s |
 
 End to end stops when each architecture's declared final outputs are ready: full
 redaction plus summary for Architecture 1, and the PII-safe summary for Architectures
@@ -278,15 +279,15 @@ their individual stage times are not added together.
 Architecture 3 is not one full-call REST request in the current benchmark. It issues
 113 VAD-delimited Fast Transcription requests, with up to four concurrent requests per
 channel, because a single enhanced whole-file response does not provide the reliable
-interleaved turn timing required by the downstream conversation contract. Its 16.86-second
+interleaved turn timing required by the downstream conversation contract. Its 16.57-second
 post-call STT wall time therefore includes request fan-out, queueing, temporary clip
 construction, response parsing, and thread scheduling. New runs also retain
 per-request API latency statistics separately from that orchestration wall time.
 
 DeepSeek stage output separates regex detection, prompt/token preparation,
 the Foundry HTTP call, strict summary validation, summary sanitization, and residual
-backend orchestration. Completion tokens fell to 148 for Architecture 2 and 108 for
-Architecture 3 after removing the regenerated conversation.
+backend orchestration. The compact participant/text projection coalesced 112 source
+turns into 56 segments and serialized to about 8 KB for each DeepSeek request.
 
 ### Original mono baseline
 
@@ -337,23 +338,23 @@ tiers are $1.00/1K for 0-0.5M records, $0.75 for 0.5-2.5M, $0.30 for 2.5-10M, an
 $0.25 above 10M; this benchmark uses the first tier. The 504.168-second stereo call
 submits two mono channels, or 0.280093 billable audio hours. Architecture 1 sends
 5,212 characters (6 records) to PII and 5,830 input-plus-output characters (6 records)
-to summarization. The refreshed summary-only run measured 6,981 input / 148 output
-tokens for Architecture 2 and 7,199 input / 108 output tokens for Architecture 3.
+to summarization. The refreshed compact-input run measured 2,361 input / 144 output
+tokens for Architecture 2 and 2,416 input / 139 output tokens for Architecture 3.
 No cached input was reported, so the cached-token rate contributes $0.
 
 | Architecture | List / call | Discounted / call | 1,000 calls | 100,000 calls |
 | --- | ---: | ---: | ---: | ---: |
 | 1. Azure Speech + Azure Language | $0.290293 | **$0.031069** | $31.07 | $3,099.43* |
-| 2. MAI real-time + DeepSeek | $0.102235 | **$0.011485** | $11.49 | $1,148.52 |
-| 3. MAI batch + DeepSeek | $0.102256 | **$0.011506** | $11.51 | $1,150.63 |
+| 2. MAI real-time + DeepSeek | $0.101356 | **$0.010605** | $10.61 | $1,060.54 |
+| 3. MAI batch + DeepSeek | $0.101364 | **$0.010613** | $10.61 | $1,061.33 |
 
 \*The 100,000-call Architecture 1 projection applies the supplied PII tiers across
 600,000 records: 500,000 records at $1.00/1K and 100,000 at $0.75/1K before the
 70% Azure Language discount. The per-call and 1,000-call figures remain in tier 1.
 
-Architecture 2 is now the cheapest measured pipeline: about **63.0% less than
-Architecture 1** per benchmark call and $1,950.91 less per 100,000 calls after
-applying the PII volume tier. Architecture 3 is $0.000021 per call more than
+Architecture 2 is now the cheapest measured pipeline: about **65.9% less than
+Architecture 1** per benchmark call and $2,038.89 less per 100,000 calls after
+applying the PII volume tier. Architecture 3 is $0.000008 per call more than
 Architecture 2 because its slightly larger prompt outweighs its smaller summary.
 The frontend calculates the same list and
 discounted totals for every new run from submitted audio duration, Azure Language

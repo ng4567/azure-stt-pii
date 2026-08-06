@@ -3,74 +3,91 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Architecture 3 - MAI batch + DeepSeek | Call Processing Benchmark</title>
+<title>Architecture 3 - MAI batch + DeepSeek | Call processing benchmark</title>
 <style>
   :root{
-    --ink:#2d3748; --muted:#718096; --line:#e2e8f0; --accent:#ed8936;
+    --accent:#2c7a7b; --accent-soft:#e6f4f4;
+    --ink:#1b2436; --muted:#5f6d84; --line:#dde5f0;
   }
   *{margin:0;padding:0;box-sizing:border-box}
   body{
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-    background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-    color:var(--ink);padding:1.5rem 1rem;min-height:100vh;line-height:1.5;
+    background:#eef3fa;color:var(--ink);padding:1.25rem 1rem;min-height:100vh;line-height:1.5;
   }
-  .container{max-width:1040px;margin:0 auto;background:#fff;border-radius:16px;
-    box-shadow:0 16px 44px rgba(0,0,0,.28);padding:1.75rem}
-  header{border-bottom:3px solid var(--accent);padding-bottom:.9rem;margin-bottom:1.1rem}
-  h1{font-size:1.5rem;letter-spacing:-.02em}
-  .subtitle{color:var(--muted);font-size:.95rem;margin-top:.3rem;max-width:78ch}
-  .badges{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.75rem}
-  .badge{background:#edf2f7;color:#4a5568;border:1px solid var(--line);border-radius:999px;
-    padding:.2rem .65rem;font-size:.74rem;font-weight:600}
-  .badge.proc{background:#fffaf0;color:#b7791f;border-color:#fbd38d}
-  .badge.ai{background:#faf5ff;color:#6b46c1;border-color:#e9d8fd}
-  .badge.ok{background:#f0fff4;color:#276749;border-color:#c6f6d5}
-  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;
+  .container{max-width:1060px;margin:0 auto;background:#fff;border:1px solid var(--line);
+    border-radius:14px;box-shadow:0 1px 3px rgba(20,40,80,.07);padding:1.5rem}
+  .nav{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1.1rem}
+  .nav a{display:flex;align-items:center;gap:.45rem;padding:.35rem .7rem;border:1px solid var(--line);
+    border-radius:999px;font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none}
+  .nav a:hover{border-color:var(--accent);color:var(--accent)}
+  .nav a[aria-current="page"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .nav i{display:grid;place-items:center;width:17px;height:17px;border-radius:5px;
+    background:var(--accent);color:#fff;font-style:normal;font-size:.68rem;font-weight:700}
+  .nav a:not([aria-current="page"]) i{background:#c9d5e5}
+  header{border-bottom:1px solid var(--line);padding-bottom:.9rem;margin-bottom:1.1rem}
+  h1{font-size:1.4rem;letter-spacing:-.02em}
+  h1 span{color:var(--accent)}
+  .subtitle{color:var(--muted);font-size:.92rem;margin-top:.35rem;max-width:80ch}
+  .badges{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.8rem}
+  .badge{background:#f3f6fb;color:#48566b;border:1px solid var(--line);border-radius:999px;
+    padding:.2rem .65rem;font-size:.73rem;font-weight:600}
+  .badge.key{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem;
     margin-bottom:1.1rem}
-  .metric{background:linear-gradient(135deg,#ed8936,#9c4221);color:#fff;border-radius:10px;
-    padding:.65rem .5rem;text-align:center}
-  .metric b{display:block;font-size:1.15rem;font-weight:700}
-  .metric span{font-size:.7rem;opacity:.9}
-  .diagram{background:#f7fafc;border:1px solid var(--line);border-radius:12px;
+  .metric{border:1px solid var(--line);border-radius:10px;padding:.6rem .75rem;background:#f8fafd}
+  .metric b{display:block;font-size:1.2rem;font-weight:700;color:var(--accent);
+    font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .metric span{display:block;color:var(--muted);font-size:.72rem;margin-top:.1rem}
+  .diagram{background:#f8fafd;border:1px solid var(--line);border-radius:10px;
     padding:.75rem;overflow-x:auto}
   svg{display:block;width:100%;height:auto;min-width:720px}
   svg .b{fill:#fff;font-size:12.5px;font-weight:700}
   svg .s{fill:#fff;font-size:10px;opacity:.93}
   svg .m{fill:#4a5568;font-size:10px}
-  svg .t{fill:#718096;font-size:10px;font-style:italic}
-  .note{border-left:4px solid var(--accent);background:#fffaf0;border-radius:0 8px 8px 0;
-    padding:.7rem .9rem;margin-top:1rem;font-size:.86rem}
-  code{background:#edf2f7;border-radius:4px;padding:.05rem .3rem;
+  svg .t{fill:#5f6d84;font-size:10px;font-style:italic}
+  .note{border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0;
+    padding:.75rem .9rem;margin-top:1rem;font-size:.86rem}
+  code{background:#eef2f8;border-radius:4px;padding:.05rem .3rem;
     font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em}
-  footer{margin-top:1.2rem;padding-top:.8rem;border-top:1px solid var(--line);
-    color:var(--muted);font-size:.78rem}
-  a{color:#2b6cb0}
+  footer{margin-top:1.1rem;padding-top:.8rem;border-top:1px solid var(--line);
+    color:var(--muted);font-size:.76rem}
+  /* Embedded in the benchmark dashboard: drop the page chrome and the duplicate nav. */
+  body.framed{background:#fff;padding:1.1rem 1.25rem}
+  body.framed .container{max-width:none;border:0;border-radius:0;box-shadow:none;padding:0}
+  body.framed .nav{display:none}
   @media (max-width:768px){
-    body{padding:.75rem .5rem}.container{padding:1rem;border-radius:12px}h1{font-size:1.25rem}
+    body{padding:.75rem .5rem}.container{padding:1rem;border-radius:12px}h1{font-size:1.2rem}
   }
 </style>
 </head>
 <body>
 <div class="container">
 
+<nav class="nav" aria-label="Architectures">
+  <a data-arch="architecture-1-azure-language"><i>1</i>Azure Speech + Azure Language</a>
+  <a data-arch="architecture-2-mai-realtime-deepseek"><i>2</i>MAI real-time + DeepSeek</a>
+  <a data-arch="architecture-3-mai-batch-deepseek" aria-current="page"><i>3</i>MAI batch + DeepSeek</a>
+</nav>
+
 <header>
-  <h1>Architecture 3 &mdash; MAI batch + DeepSeek</h1>
+  <h1><span>Architecture 3</span> &mdash; MAI batch + DeepSeek</h1>
   <p class="subtitle">
     The same transcription model and the same summary-only DeepSeek call as Architecture 2,
     but transcription starts only after the caller hangs up.
   </p>
   <div class="badges">
-    <span class="badge proc">Post-call batch STT</span>
-    <span class="badge ai">DeepSeek &mdash; one summary-only call</span>
-    <span class="badge ok">HTTPS only, no WebSocket</span>
+    <span class="badge key">Sanitized summary only</span>
+    <span class="badge">Post-call batch STT</span>
+    <span class="badge">DeepSeek &mdash; one summary call</span>
+    <span class="badge">HTTPS only, no WebSocket</span>
   </div>
 </header>
 
 <div class="metrics">
-  <div class="metric"><b>4.15%</b><span>word error rate</span></div>
+  <div class="metric"><b>4.04%</b><span>word error rate</span></div>
   <div class="metric"><b>112</b><span>turns from 113 requests</span></div>
-  <div class="metric"><b>521.0s</b><span>transcript ready (504.2s call)</span></div>
-  <div class="metric"><b>16.9s</b><span>post-call turnaround</span></div>
+  <div class="metric"><b>520.7s</b><span>transcript ready (504.2s call)</span></div>
+  <div class="metric"><b>16.6s</b><span>post-call STT turnaround</span></div>
 </div>
 
 <div class="diagram">
@@ -122,14 +139,14 @@
         stroke="#a0aec0" stroke-width="1.5"/>
   <text class="m" x="30" y="208">call start</text>
   <text class="m" x="700" y="208" text-anchor="middle">504.2s call ends</text>
-  <text class="m" x="905" y="224" text-anchor="middle">521.0s transcript</text>
-  <text class="m" x="1060" y="208" text-anchor="end">523.2s summary</text>
+  <text class="m" x="905" y="224" text-anchor="middle">520.7s transcript</text>
+  <text class="m" x="1060" y="208" text-anchor="end">526.2s summary</text>
 </svg>
 </div>
 
 <div class="note">
   <b>Post-call, not real-time.</b> The pipeline is serialized after the recording is complete, so
-  the transcript arrives 16.9s after hang-up instead of alongside the call &mdash; the price of
+  the transcript arrives 16.6s after hang-up instead of alongside the call &mdash; the price of
   needing no live streaming session. Everything downstream is byte-for-byte the shared
   Architecture 2 path, so the only variable being measured is streaming versus batch. DeepSeek
   returns <b>only</b> <code>{"summary": string}</code>: no redacted transcript, no entity list.
@@ -137,11 +154,16 @@
 
 <footer>
   Numbers read from the checked-in stereo benchmark result (504.168s call, 989-word reference).
-  Companion diagrams:
-  <a href="architecture-1-azure-language.html">Architecture 1</a> &middot;
-  <a href="architecture-2-mai-realtime-deepseek.html">Architecture 2</a>.
 </footer>
 
 </div>
+<script>
+  // The pages are served both as static files and from /api/architecture-diagrams/<id>.
+  if (window.top !== window.self) document.body.classList.add("framed");
+  var suffix = location.pathname.endsWith(".html") ? ".html" : "";
+  for (var link of document.querySelectorAll("[data-arch]")) {
+    link.setAttribute("href", link.dataset.arch + suffix);
+  }
+</script>
 </body>
 </html>

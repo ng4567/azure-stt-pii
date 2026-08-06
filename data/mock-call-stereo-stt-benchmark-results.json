@@ -18,13 +18,13 @@
       "label": "1. Azure Speech real-time (SDK)",
       "metrics": {
         "mode": "real-time (incremental)",
-        "wall_seconds": 504.954004437,
-        "time_to_full_transcript": 504.954004437,
+        "wall_seconds": 504.7158679579734,
+        "time_to_full_transcript": 504.7158679579734,
         "finalization_lag": {
-          "mean": 0.769010802000002,
-          "median": 0.776644251999997,
-          "p95": 0.9331531739999832,
-          "max": 3.3327342659999957,
+          "mean": 0.7591566346709032,
+          "median": 0.7590287080104474,
+          "p95": 0.9705224170093345,
+          "max": 3.3170846670167506,
           "count": 85
         },
         "segments": 85,
@@ -6693,13 +6693,13 @@
       "label": "2. MAI-Transcribe-1.5 real-time (Voice Live)",
       "metrics": {
         "mode": "real-time (utterance micro-batch)",
-        "wall_seconds": 504.42446977000003,
-        "time_to_full_transcript": 504.42446977000003,
+        "wall_seconds": 504.4778875830234,
+        "time_to_full_transcript": 504.4778875830234,
         "finalization_lag": {
-          "mean": 0.7929522393451319,
-          "median": 0.7788094590000014,
-          "p95": 0.9366342509999868,
-          "max": 1.0986574170000267,
+          "mean": 0.8236680346576134,
+          "median": 0.8106421669945121,
+          "p95": 0.972134375013411,
+          "max": 1.0395881659933366,
           "count": 113
         },
         "segments": 112,
@@ -7645,9 +7645,9 @@
       "label": "3. MAI-Transcribe-1.5 batch (VAD utterances)",
       "metrics": {
         "mode": "batch (post-call VAD utterances)",
-        "wall_seconds": 16.859478674,
-        "turnaround_seconds": 16.859478674,
-        "time_to_full_transcript": 521.027478674,
+        "wall_seconds": 16.565414540993515,
+        "turnaround_seconds": 16.565414540993515,
+        "time_to_full_transcript": 520.7334145409935,
         "finalization_lag": {
           "mean": null,
           "median": null,
@@ -7659,22 +7659,22 @@
         "channel_sessions": 2,
         "utterance_requests": 113,
         "api_request_latency": {
-          "mean": 0.8737253746548647,
-          "median": 0.8723872509999637,
-          "p95": 1.0101332090000597,
-          "max": 1.1105531670000346,
+          "mean": 0.8313700265407694,
+          "median": 0.8317927080206573,
+          "p95": 0.9879722080077045,
+          "max": 1.072285332949832,
           "count": 113
         },
         "request_concurrency_per_channel": 4,
         "max_concurrent_requests": 8,
         "wall_includes_local_orchestration": true,
         "timing_estimated": false,
-        "wer": 0.041456016177957536,
-        "accuracy": 0.9585439838220424,
-        "substitutions": 17,
+        "wer": 0.04044489383215369,
+        "accuracy": 0.9595551061678463,
+        "substitutions": 16,
         "deletions": 8,
         "insertions": 16,
-        "hits": 964,
+        "hits": 965,
         "participants": {
           "REP": {
             "wer": 0.02029520295202952,
@@ -7685,17 +7685,17 @@
             "hits": 534
           },
           "CUSTOMER": {
-            "wer": 0.0696629213483146,
-            "accuracy": 0.9303370786516854,
-            "substitutions": 10,
+            "wer": 0.06741573033707865,
+            "accuracy": 0.9325842696629214,
+            "substitutions": 9,
             "deletions": 7,
             "insertions": 14,
-            "hits": 428
+            "hits": 429
           }
         },
         "word_count": 997
       },
-      "transcript": "Thank you for calling North Star Telecom. My name is Maya. How may I help you today? Hello? Yes, hello, dear. I am hoping you can help me get internet put in at my house. The television is fine, but my grandson says I need the internet for the video doctor visits. I can absolutely help with that. Before we begin, may I have your full name? It is Eleanor June Whitaker. Eleanor, like the president's wife. And Whittaker, W-H-I-T-A-K-E-R. I am 82, so you may have to speak a little slowly for me. Of course, Ms. Whitaker, I will go slowly. Are you looking for internet service only? Yes, internet only. I do not need all those channels. My neighbor said the regular plan would do. We have a 300 megabit internet plan available in your area for 55 dollars per month, plus taxes and fees. It includes a Wi-Fi gateway. Would that work for you? 300. What did you say, megabytes? 300 megabits. It is a good plan for video calls, browsing, and streaming. Oh yes, that sounds right. I have to find my papers. They are in this little blue folder. Take your time. My hearing aid is whistling. One moment. Alright. I am back. No problem. To check availability, may I have the service address? Yeah. It is 742 Evergreen Terrace. Wait, no, that is not right. That is the address from an old television show. My address is 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Thank you. That is 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Is that correct? Yes, that is correct. The building is the one with the green awning. The door buzzer, says Whitaker. I have the address. We can install service there. May I have a phone number where our technician can reach you? It is 200 Two. Yes. Five. Hundred. Yeah. Five. Zero. One. Or 8. Let me say it again. Two. Zero. To Five, five. Bye. Zero. One. Four eights. Thank you. And what is the best email address for order updates in your online account? My grandson made it for me. It is Eleanor dot Whitaker. No, wait. It is eleanor.whitaker82 at example.com. Eleanor. Whittaker82@example.com. I have eleanor.whittaker82@example.com. Is it okay to send your order confirmation there? Yes, but please also call me. I do not always see the computer messages right away. Certainly. For identity verification, I will need your date of birth and the last four digits of your social security number. My birthday is February 29th, 1944. And the last four are 98, 76. Thank you. For this test call transcript, I will confirm that the verification information was accepted. I also see a previous mailing address associated with your name. Could you confirm it was 88 Harbor View Drive, Unit 12, Bayport, New York, 11705? Yes, that was my old apartment. I moved from there last autumn after my husband passed. Sorry, I get a little turned around with all the addresses. I understand, and I am sorry for your loss. You are doing just fine. The installation appointment I have available is Tuesday, August 11th, between 8:00 AM and noon. Would someone be home then? Tuesday the 11th, let me check the calendar. Yes, I believe so. My daughter visits on Wednesdays. Tuesday is good. Great. The technician will need access to the cable outlet near the television. There is no charge for standard, standard installation. There is a one-time $25 activation fee, and the monthly total today will be $55 plus applicable taxes and fees. I understand. Is the little box included? Yes, the Wi-Fi gateway is included. To complete the order, may I collect a payment card for the activation fee and monthly billing? Yes, I have it right here. Oh dear, I cannot see the numbers. Let me put on my other glasses. Take your time. You can read the numbers in groups of four when you are ready. All right, it is a visa. The number is 4-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1. Thank you. What is the expiration date? November of 2030. That is 1/1 slash Three row. And the three-digit security code on the back? Miss Whitaker, I think your phone may be muted. Oh, for goodness' sake. My grandson showed me this button, and now I press it by accident. Can you hear me now? Yes, I can hear you now. The security code is 123. Thank you. The billing address for the card is the Willowbrook Lane address we discussed, is that correct? Yes, 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Perfect. I have submitted the payment information. The card was approved. Oh, good. I always worry when a machine has to decide something. Your new account has been created. Your account number is NS49382176. Your service is Northstar 300 Internet at $55 per month, with the $25 activation fee charged today. Installation is scheduled for Tuesday, August 11th, from 8:00 AM to noon. Could you say the day again slowly? Tuesday, August 11th, between 8:00 AM and noon. Tuesday, August 11th. Alright. And someone will call before they come. Yes, we will call 202-555-148 when the technician is on the way, and we will email the confirmation to eleanor.wediker82@example.com. Very good. Do I need to write down that account number? You may, although it will also be in your confirmation email. The account number is N as in November, S as in Sam, 4938-2176. NS 4938-2176. I wrote it down, I think. My pen is not very good anymore. That is all right. Is there anything else I can help you with today? No, dear, you have been very patient. Thank you for helping this old lady get connected. It was my pleasure, Ms. Whitaker. Thank you for choosing North Star Telecom. Have a good day. You too. Goodbye.",
+      "transcript": "Thank you for calling North Star Telecom. My name is Maya. How may I help you today? Hello? Yes, hello, dear. I am hoping you can help me get internet put in at my house. The television is fine, but my grandson says I need the internet for the video doctor visits. I can absolutely help with that. Before we begin, may I have your full name? It is Eleanor June Whitaker. Eleanor, like the president's wife. And Whitaker, W-H-I-T-A-K-E-R. I am 82, so you may have to speak a little slowly for me. Of course, Ms. Whitaker, I will go slowly. Are you looking for internet service only? Yes, internet only. I do not need all those channels. My neighbor said the regular plan would do. We have a 300 megabit internet plan available in your area for 55 dollars per month, plus taxes and fees. It includes a Wi-Fi gateway. Would that work for you? 300. What did you say, megabytes? 300 megabits. It is a good plan for video calls, browsing, and streaming. Oh yes, that sounds right. I have to find my papers. They are in this little blue folder. Take your time. My hearing aid is whistling. One moment. Alright. I am back. No problem. To check availability, may I have the service address? Yeah. It is 742 Evergreen Terrace. Wait, no, that is not right. That is the address from an old television show. My address is 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Thank you. That is 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Is that correct? Yes, that is correct. The building is the one with the green awning. The door buzzer, says Whitaker. I have the address. We can install service there. May I have a phone number where our technician can reach you? It is 200 Two. Yes. Five. Hundred. Yeah. Five. Zero. One. Or 8. Let me say it again. Two. Zero. To Five, five. Bye. Zero. One. Four eights. Thank you. And what is the best email address for order updates in your online account? My grandson made it for me. It is Eleanor dot Whitaker. No, wait. It is eleanor.whitaker82 at example.com. Eleanor. Whittaker82@example.com. I have eleanor.whittaker82@example.com. Is it okay to send your order confirmation there? Yes, but please also call me. I do not always see the computer messages right away. Certainly. For identity verification, I will need your date of birth and the last four digits of your social security number. My birthday is February 29th, 1944. And the last four are 98, 76. Thank you. For this test call transcript, I will confirm that the verification information was accepted. I also see a previous mailing address associated with your name. Could you confirm it was 88 Harbor View Drive, Unit 12, Bayport, New York, 11705? Yes, that was my old apartment. I moved from there last autumn after my husband passed. Sorry, I get a little turned around with all the addresses. I understand, and I am sorry for your loss. You are doing just fine. The installation appointment I have available is Tuesday, August 11th, between 8:00 AM and noon. Would someone be home then? Tuesday the 11th, let me check the calendar. Yes, I believe so. My daughter visits on Wednesdays. Tuesday is good. Great. The technician will need access to the cable outlet near the television. There is no charge for standard, standard installation. There is a one-time $25 activation fee, and the monthly total today will be $55 plus applicable taxes and fees. I understand. Is the little box included? Yes, the Wi-Fi gateway is included. To complete the order, may I collect a payment card for the activation fee and monthly billing? Yes, I have it right here. Oh dear, I cannot see the numbers. Let me put on my other glasses. Take your time. You can read the numbers in groups of four when you are ready. All right, it is a visa. The number is 4-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1. Thank you. What is the expiration date? November of 2030. That is 1/1 slash Three row. And the three-digit security code on the back? Miss Whitaker, I think your phone may be muted. Oh, for goodness' sake. My grandson showed me this button, and now I press it by accident. Can you hear me now? Yes, I can hear you now. The security code is 123. Thank you. The billing address for the card is the Willowbrook Lane address we discussed, is that correct? Yes, 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Perfect. I have submitted the payment information. The card was approved. Oh, good. I always worry when a machine has to decide something. Your new account has been created. Your account number is NS49382176. Your service is Northstar 300 Internet at $55 per month, with the $25 activation fee charged today. Installation is scheduled for Tuesday, August 11th, from 8:00 AM to noon. Could you say the day again slowly? Tuesday, August 11th, between 8:00 AM and noon. Tuesday, August 11th. Alright. And someone will call before they come. Yes, we will call 202-555-148 when the technician is on the way, and we will email the confirmation to eleanor.wediker82@example.com. Very good. Do I need to write down that account number? You may, although it will also be in your confirmation email. The account number is N as in November, S as in Sam, 4938-2176. NS 4938-2176. I wrote it down, I think. My pen is not very good anymore. That is all right. Is there anything else I can help you with today? No, dear, you have been very patient. Thank you for helping this old lady get connected. It was my pleasure, Ms. Whitaker. Thank you for choosing North Star Telecom. Have a good day. You too. Goodbye.",
       "conversation": {
         "id": "audio-architecture-3-mai-transcribe-batch",
         "language": "en",
@@ -7784,7 +7784,7 @@
             "channel": 1,
             "offset": 329000000,
             "duration": 41600000,
-            "text": "And Whittaker, W-H-I-T-A-K-E-R."
+            "text": "And Whitaker, W-H-I-T-A-K-E-R."
           },
           {
             "id": "turn-0011",
@@ -16292,16 +16292,16 @@
           "status": "succeeded",
           "provider": "Azure AI Speech",
           "model": "Azure Speech real-time transcription (Speech SDK)",
-          "wall_seconds": 504.954004437,
+          "wall_seconds": 504.7158679579734,
           "metrics": {
             "mode": "real-time (incremental)",
-            "wall_seconds": 504.954004437,
-            "time_to_full_transcript": 504.954004437,
+            "wall_seconds": 504.7158679579734,
+            "time_to_full_transcript": 504.7158679579734,
             "finalization_lag": {
-              "mean": 0.769010802000002,
-              "median": 0.776644251999997,
-              "p95": 0.9331531739999832,
-              "max": 3.3327342659999957,
+              "mean": 0.7591566346709032,
+              "median": 0.7590287080104474,
+              "p95": 0.9705224170093345,
+              "max": 3.3170846670167506,
               "count": 85
             },
             "segments": 85,
@@ -16338,7 +16338,7 @@
           "status": "succeeded",
           "provider": "Azure AI Language",
           "model": "Conversation PII",
-          "wall_seconds": 3.9731333769999537,
+          "wall_seconds": 4.580990082991775,
           "metrics": {
             "entity_count": 38,
             "input_characters": 5212
@@ -16349,7 +16349,7 @@
           "status": "succeeded",
           "provider": "Azure AI Language",
           "model": "Conversational Summarization",
-          "wall_seconds": 4.507830919000071,
+          "wall_seconds": 4.236560874967836,
           "metrics": {
             "input_characters": 5212,
             "output_characters": 618
@@ -16360,7 +16360,7 @@
           "status": "succeeded",
           "provider": "local",
           "model": "typed entity replacement",
-          "wall_seconds": 0.0030062079999879643,
+          "wall_seconds": 0.0013917919714003801,
           "metrics": {
             "entity_count": 38
           },
@@ -16370,7 +16370,7 @@
           "status": "succeeded",
           "provider": "local",
           "model": "typed entity replacement",
-          "wall_seconds": 0.0021474999999782085,
+          "wall_seconds": 0.001203084015287459,
           "metrics": {
             "replacement_count": 6
           },
@@ -16380,15 +16380,15 @@
           "status": "succeeded",
           "provider": "local",
           "model": "parallel join and uninstrumented orchestration",
-          "wall_seconds": 0.0033795419999478327,
+          "wall_seconds": 0.0010482079815119505,
           "metrics": {},
           "error": null
         }
       },
       "latency": {
-        "stt_seconds": 504.954004437,
-        "downstream_seconds": 4.516364168999985,
-        "end_to_end_seconds": 509.47036860599997
+        "stt_seconds": 504.7158679579734,
+        "downstream_seconds": 4.584633166959975,
+        "end_to_end_seconds": 509.30050112493336
       },
       "error": null
     },
@@ -17309,23 +17309,23 @@
         }
       },
       "redacted": null,
-      "summary": "An 82-year-old customer called North Star Telecom to order internet-only service for video doctor visits. The representative patiently helped her select a 300 Mbps plan at $55/month plus a $25 activation fee. The customer provided her name, service address at [ADDRESS], phone number [PHONE_NUMBER], email [EMAIL], date of birth [DATE_OF_BIRTH], partial SSN, and credit card details for verification and payment. An installation appointment was scheduled for [DATE] between 8:00 AM and noon. The account was created with number [BANK_ACCOUNT]. The customer was reminded that the technician would call before arriving and that a confirmation would be emailed.",
+      "summary": "An 82-year-old customer called to order internet-only service for video doctor visits. The representative patiently guided her through the process, collecting her name, service address at [ADDRESS], phone number [PHONE_NUMBER], email [EMAIL], date of birth [DATE_OF_BIRTH], and partial SSN [SSN] for verification. The customer selected a 300 Mbps plan at $55/month plus a $25 activation fee, paid with a credit card [CREDIT_CARD]. Installation was scheduled for Tuesday, August 11th, between 8 AM and noon. The account number was provided, and the customer confirmed she would be home for the appointment.",
       "entities": [],
       "stages": {
         "stt": {
           "status": "succeeded",
           "provider": "Azure AI Speech / Voice Live",
           "model": "MAI-Transcribe-1.5 real-time (113 VAD commits)",
-          "wall_seconds": 504.42446977000003,
+          "wall_seconds": 504.4778875830234,
           "metrics": {
             "mode": "real-time (utterance micro-batch)",
-            "wall_seconds": 504.42446977000003,
-            "time_to_full_transcript": 504.42446977000003,
+            "wall_seconds": 504.4778875830234,
+            "time_to_full_transcript": 504.4778875830234,
             "finalization_lag": {
-              "mean": 0.7929522393451319,
-              "median": 0.7788094590000014,
-              "p95": 0.9366342509999868,
-              "max": 1.0986574170000267,
+              "mean": 0.8236680346576134,
+              "median": 0.8106421669945121,
+              "p95": 0.972134375013411,
+              "max": 1.0395881659933366,
               "count": 113
             },
             "segments": 112,
@@ -17363,9 +17363,9 @@
           "status": "succeeded",
           "provider": "local",
           "model": "deterministic PII candidates",
-          "wall_seconds": 0.0012597500000310902,
+          "wall_seconds": 0.0008442079997621477,
           "metrics": {
-            "candidate_count": 2
+            "candidate_count": 3
           },
           "error": null
         },
@@ -17373,22 +17373,26 @@
           "status": "succeeded",
           "provider": "backend + Microsoft Entra ID",
           "model": "prompt serialization and token acquisition",
-          "wall_seconds": 1.2040798750000477,
-          "metrics": {},
+          "wall_seconds": 1.3238243330270052,
+          "metrics": {
+            "source_turn_count": 112,
+            "projected_segment_count": 56,
+            "user_content_characters": 7996
+          },
           "error": null
         },
         "llm_api_call": {
           "status": "succeeded",
           "provider": "Azure AI Foundry",
           "model": "DeepSeek-V4-Flash",
-          "wall_seconds": 2.4744539600000053,
+          "wall_seconds": 2.3529277499765158,
           "metrics": {
             "summary_only": true,
             "output_semantics": "pii_safe_summary_only",
             "attempts": 1,
-            "input_tokens": 6981,
-            "output_tokens": 148,
-            "total_tokens": 7129
+            "input_tokens": 2361,
+            "output_tokens": 144,
+            "total_tokens": 2505
           },
           "error": null
         },
@@ -17396,7 +17400,7 @@
           "status": "succeeded",
           "provider": "local",
           "model": "strict summary-only JSON validation",
-          "wall_seconds": 0.00008216599997012963,
+          "wall_seconds": 7.045897655189037e-05,
           "metrics": {},
           "error": null
         },
@@ -17404,7 +17408,7 @@
           "status": "succeeded",
           "provider": "local",
           "model": "regex-candidate literal replacement",
-          "wall_seconds": 0.00045666699998037075,
+          "wall_seconds": 0.0004107910208404064,
           "metrics": {
             "replacement_count": 0
           },
@@ -17414,15 +17418,15 @@
           "status": "succeeded",
           "provider": "local",
           "model": "thread scheduling and uninstrumented orchestration",
-          "wall_seconds": 0.000010250999935124128,
+          "wall_seconds": 7.001042831689119e-06,
           "metrics": {},
           "error": null
         }
       },
       "latency": {
-        "stt_seconds": 504.42446977000003,
-        "downstream_seconds": 3.6803426689999696,
-        "end_to_end_seconds": 508.104812439
+        "stt_seconds": 504.4778875830234,
+        "downstream_seconds": 3.678084542043507,
+        "end_to_end_seconds": 508.1559721250669
       },
       "error": null
     },
@@ -17432,7 +17436,7 @@
       "label": "3. MAI batch + DeepSeek",
       "status": "succeeded",
       "source": {
-        "transcript": "Thank you for calling North Star Telecom. My name is Maya. How may I help you today? Hello? Yes, hello, dear. I am hoping you can help me get internet put in at my house. The television is fine, but my grandson says I need the internet for the video doctor visits. I can absolutely help with that. Before we begin, may I have your full name? It is Eleanor June Whitaker. Eleanor, like the president's wife. And Whittaker, W-H-I-T-A-K-E-R. I am 82, so you may have to speak a little slowly for me. Of course, Ms. Whitaker, I will go slowly. Are you looking for internet service only? Yes, internet only. I do not need all those channels. My neighbor said the regular plan would do. We have a 300 megabit internet plan available in your area for 55 dollars per month, plus taxes and fees. It includes a Wi-Fi gateway. Would that work for you? 300. What did you say, megabytes? 300 megabits. It is a good plan for video calls, browsing, and streaming. Oh yes, that sounds right. I have to find my papers. They are in this little blue folder. Take your time. My hearing aid is whistling. One moment. Alright. I am back. No problem. To check availability, may I have the service address? Yeah. It is 742 Evergreen Terrace. Wait, no, that is not right. That is the address from an old television show. My address is 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Thank you. That is 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Is that correct? Yes, that is correct. The building is the one with the green awning. The door buzzer, says Whitaker. I have the address. We can install service there. May I have a phone number where our technician can reach you? It is 200 Two. Yes. Five. Hundred. Yeah. Five. Zero. One. Or 8. Let me say it again. Two. Zero. To Five, five. Bye. Zero. One. Four eights. Thank you. And what is the best email address for order updates in your online account? My grandson made it for me. It is Eleanor dot Whitaker. No, wait. It is eleanor.whitaker82 at example.com. Eleanor. Whittaker82@example.com. I have eleanor.whittaker82@example.com. Is it okay to send your order confirmation there? Yes, but please also call me. I do not always see the computer messages right away. Certainly. For identity verification, I will need your date of birth and the last four digits of your social security number. My birthday is February 29th, 1944. And the last four are 98, 76. Thank you. For this test call transcript, I will confirm that the verification information was accepted. I also see a previous mailing address associated with your name. Could you confirm it was 88 Harbor View Drive, Unit 12, Bayport, New York, 11705? Yes, that was my old apartment. I moved from there last autumn after my husband passed. Sorry, I get a little turned around with all the addresses. I understand, and I am sorry for your loss. You are doing just fine. The installation appointment I have available is Tuesday, August 11th, between 8:00 AM and noon. Would someone be home then? Tuesday the 11th, let me check the calendar. Yes, I believe so. My daughter visits on Wednesdays. Tuesday is good. Great. The technician will need access to the cable outlet near the television. There is no charge for standard, standard installation. There is a one-time $25 activation fee, and the monthly total today will be $55 plus applicable taxes and fees. I understand. Is the little box included? Yes, the Wi-Fi gateway is included. To complete the order, may I collect a payment card for the activation fee and monthly billing? Yes, I have it right here. Oh dear, I cannot see the numbers. Let me put on my other glasses. Take your time. You can read the numbers in groups of four when you are ready. All right, it is a visa. The number is 4-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1. Thank you. What is the expiration date? November of 2030. That is 1/1 slash Three row. And the three-digit security code on the back? Miss Whitaker, I think your phone may be muted. Oh, for goodness' sake. My grandson showed me this button, and now I press it by accident. Can you hear me now? Yes, I can hear you now. The security code is 123. Thank you. The billing address for the card is the Willowbrook Lane address we discussed, is that correct? Yes, 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Perfect. I have submitted the payment information. The card was approved. Oh, good. I always worry when a machine has to decide something. Your new account has been created. Your account number is NS49382176. Your service is Northstar 300 Internet at $55 per month, with the $25 activation fee charged today. Installation is scheduled for Tuesday, August 11th, from 8:00 AM to noon. Could you say the day again slowly? Tuesday, August 11th, between 8:00 AM and noon. Tuesday, August 11th. Alright. And someone will call before they come. Yes, we will call 202-555-148 when the technician is on the way, and we will email the confirmation to eleanor.wediker82@example.com. Very good. Do I need to write down that account number? You may, although it will also be in your confirmation email. The account number is N as in November, S as in Sam, 4938-2176. NS 4938-2176. I wrote it down, I think. My pen is not very good anymore. That is all right. Is there anything else I can help you with today? No, dear, you have been very patient. Thank you for helping this old lady get connected. It was my pleasure, Ms. Whitaker. Thank you for choosing North Star Telecom. Have a good day. You too. Goodbye.",
+        "transcript": "Thank you for calling North Star Telecom. My name is Maya. How may I help you today? Hello? Yes, hello, dear. I am hoping you can help me get internet put in at my house. The television is fine, but my grandson says I need the internet for the video doctor visits. I can absolutely help with that. Before we begin, may I have your full name? It is Eleanor June Whitaker. Eleanor, like the president's wife. And Whitaker, W-H-I-T-A-K-E-R. I am 82, so you may have to speak a little slowly for me. Of course, Ms. Whitaker, I will go slowly. Are you looking for internet service only? Yes, internet only. I do not need all those channels. My neighbor said the regular plan would do. We have a 300 megabit internet plan available in your area for 55 dollars per month, plus taxes and fees. It includes a Wi-Fi gateway. Would that work for you? 300. What did you say, megabytes? 300 megabits. It is a good plan for video calls, browsing, and streaming. Oh yes, that sounds right. I have to find my papers. They are in this little blue folder. Take your time. My hearing aid is whistling. One moment. Alright. I am back. No problem. To check availability, may I have the service address? Yeah. It is 742 Evergreen Terrace. Wait, no, that is not right. That is the address from an old television show. My address is 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Thank you. That is 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Is that correct? Yes, that is correct. The building is the one with the green awning. The door buzzer, says Whitaker. I have the address. We can install service there. May I have a phone number where our technician can reach you? It is 200 Two. Yes. Five. Hundred. Yeah. Five. Zero. One. Or 8. Let me say it again. Two. Zero. To Five, five. Bye. Zero. One. Four eights. Thank you. And what is the best email address for order updates in your online account? My grandson made it for me. It is Eleanor dot Whitaker. No, wait. It is eleanor.whitaker82 at example.com. Eleanor. Whittaker82@example.com. I have eleanor.whittaker82@example.com. Is it okay to send your order confirmation there? Yes, but please also call me. I do not always see the computer messages right away. Certainly. For identity verification, I will need your date of birth and the last four digits of your social security number. My birthday is February 29th, 1944. And the last four are 98, 76. Thank you. For this test call transcript, I will confirm that the verification information was accepted. I also see a previous mailing address associated with your name. Could you confirm it was 88 Harbor View Drive, Unit 12, Bayport, New York, 11705? Yes, that was my old apartment. I moved from there last autumn after my husband passed. Sorry, I get a little turned around with all the addresses. I understand, and I am sorry for your loss. You are doing just fine. The installation appointment I have available is Tuesday, August 11th, between 8:00 AM and noon. Would someone be home then? Tuesday the 11th, let me check the calendar. Yes, I believe so. My daughter visits on Wednesdays. Tuesday is good. Great. The technician will need access to the cable outlet near the television. There is no charge for standard, standard installation. There is a one-time $25 activation fee, and the monthly total today will be $55 plus applicable taxes and fees. I understand. Is the little box included? Yes, the Wi-Fi gateway is included. To complete the order, may I collect a payment card for the activation fee and monthly billing? Yes, I have it right here. Oh dear, I cannot see the numbers. Let me put on my other glasses. Take your time. You can read the numbers in groups of four when you are ready. All right, it is a visa. The number is 4-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1. Thank you. What is the expiration date? November of 2030. That is 1/1 slash Three row. And the three-digit security code on the back? Miss Whitaker, I think your phone may be muted. Oh, for goodness' sake. My grandson showed me this button, and now I press it by accident. Can you hear me now? Yes, I can hear you now. The security code is 123. Thank you. The billing address for the card is the Willowbrook Lane address we discussed, is that correct? Yes, 1847 Willowbrook Lane, Apartment 3B, Brookhaven, New York, 11719. Perfect. I have submitted the payment information. The card was approved. Oh, good. I always worry when a machine has to decide something. Your new account has been created. Your account number is NS49382176. Your service is Northstar 300 Internet at $55 per month, with the $25 activation fee charged today. Installation is scheduled for Tuesday, August 11th, from 8:00 AM to noon. Could you say the day again slowly? Tuesday, August 11th, between 8:00 AM and noon. Tuesday, August 11th. Alright. And someone will call before they come. Yes, we will call 202-555-148 when the technician is on the way, and we will email the confirmation to eleanor.wediker82@example.com. Very good. Do I need to write down that account number? You may, although it will also be in your confirmation email. The account number is N as in November, S as in Sam, 4938-2176. NS 4938-2176. I wrote it down, I think. My pen is not very good anymore. That is all right. Is there anything else I can help you with today? No, dear, you have been very patient. Thank you for helping this old lady get connected. It was my pleasure, Ms. Whitaker. Thank you for choosing North Star Telecom. Have a good day. You too. Goodbye.",
         "conversation": {
           "id": "audio-architecture-3-mai-transcribe-batch",
           "language": "en",
@@ -17521,7 +17525,7 @@
               "channel": 1,
               "offset": 329000000,
               "duration": 41600000,
-              "text": "And Whittaker, W-H-I-T-A-K-E-R."
+              "text": "And Whitaker, W-H-I-T-A-K-E-R."
             },
             {
               "id": "turn-0011",
@@ -18343,19 +18347,19 @@
         }
       },
       "redacted": null,
-      "summary": "A customer called North Star Telecom to order internet service for video doctor visits. The representative verified the customer's identity, confirmed the service address, and set up a 300 Mbps internet plan for $55/month plus a $25 activation fee. Payment was collected via credit card. Installation is scheduled for Tuesday, August 11th, between 8:00 AM and noon. The account number is [ACCOUNT_NUMBER]. The customer will receive a confirmation email and a call before the technician arrives.",
+      "summary": "An 82-year-old customer called to order internet-only service for video doctor visits. The representative verified the customer's identity using [DATE_OF_BIRTH] and partial [SSN], confirmed the service address as [ADDRESS], and collected contact details including [PHONE_NUMBER] and [EMAIL]. The customer selected a 300 Mbps plan at $55/month plus a $25 activation fee. Payment was processed using a [CREDIT_CARD] with expiration [DATE] and CVV. Installation is scheduled for [DATE] between 8:00 AM and noon. The account number was provided. The customer expressed gratitude for the assistance.",
       "entities": [],
       "stages": {
         "stt": {
           "status": "succeeded",
           "provider": "Azure AI Speech / Fast Transcription",
           "model": "MAI-Transcribe-1.5 batch (113 VAD requests)",
-          "wall_seconds": 16.859478674,
+          "wall_seconds": 16.565414540993515,
           "metrics": {
             "mode": "batch (post-call VAD utterances)",
-            "wall_seconds": 16.859478674,
-            "turnaround_seconds": 16.859478674,
-            "time_to_full_transcript": 521.027478674,
+            "wall_seconds": 16.565414540993515,
+            "turnaround_seconds": 16.565414540993515,
+            "time_to_full_transcript": 520.7334145409935,
             "finalization_lag": {
               "mean": null,
               "median": null,
@@ -18367,22 +18371,22 @@
             "channel_sessions": 2,
             "utterance_requests": 113,
             "api_request_latency": {
-              "mean": 0.8737253746548647,
-              "median": 0.8723872509999637,
-              "p95": 1.0101332090000597,
-              "max": 1.1105531670000346,
+              "mean": 0.8313700265407694,
+              "median": 0.8317927080206573,
+              "p95": 0.9879722080077045,
+              "max": 1.072285332949832,
               "count": 113
             },
             "request_concurrency_per_channel": 4,
             "max_concurrent_requests": 8,
             "wall_includes_local_orchestration": true,
             "timing_estimated": false,
-            "wer": 0.041456016177957536,
-            "accuracy": 0.9585439838220424,
-            "substitutions": 17,
+            "wer": 0.04044489383215369,
+            "accuracy": 0.9595551061678463,
+            "substitutions": 16,
             "deletions": 8,
             "insertions": 16,
-            "hits": 964,
+            "hits": 965,
             "participants": {
               "REP": {
                 "wer": 0.02029520295202952,
@@ -18393,12 +18397,12 @@
                 "hits": 534
               },
               "CUSTOMER": {
-                "wer": 0.0696629213483146,
-                "accuracy": 0.9303370786516854,
-                "substitutions": 10,
+                "wer": 0.06741573033707865,
+                "accuracy": 0.9325842696629214,
+                "substitutions": 9,
                 "deletions": 7,
                 "insertions": 14,
-                "hits": 428
+                "hits": 429
               }
             },
             "word_count": 997
@@ -18409,9 +18413,9 @@
           "status": "succeeded",
           "provider": "local",
           "model": "deterministic PII candidates",
-          "wall_seconds": 0.0014504170000009253,
+          "wall_seconds": 0.0009539999882690609,
           "metrics": {
-            "candidate_count": 5
+            "candidate_count": 6
           },
           "error": null
         },
@@ -18419,22 +18423,26 @@
           "status": "succeeded",
           "provider": "backend + Microsoft Entra ID",
           "model": "prompt serialization and token acquisition",
-          "wall_seconds": 0.20116645799998878,
-          "metrics": {},
+          "wall_seconds": 0.32245787495048717,
+          "metrics": {
+            "source_turn_count": 112,
+            "projected_segment_count": 56,
+            "user_content_characters": 7996
+          },
           "error": null
         },
         "llm_api_call": {
           "status": "succeeded",
           "provider": "Azure AI Foundry",
           "model": "DeepSeek-V4-Flash",
-          "wall_seconds": 2.001209334000009,
+          "wall_seconds": 5.138109375024214,
           "metrics": {
             "summary_only": true,
             "output_semantics": "pii_safe_summary_only",
             "attempts": 1,
-            "input_tokens": 7199,
-            "output_tokens": 108,
-            "total_tokens": 7307
+            "input_tokens": 2416,
+            "output_tokens": 139,
+            "total_tokens": 2555
           },
           "error": null
         },
@@ -18442,7 +18450,7 @@
           "status": "succeeded",
           "provider": "local",
           "model": "strict summary-only JSON validation",
-          "wall_seconds": 0.00004920899993976491,
+          "wall_seconds": 0.00011187500786036253,
           "metrics": {},
           "error": null
         },
@@ -18450,7 +18458,7 @@
           "status": "succeeded",
           "provider": "local",
           "model": "regex-candidate literal replacement",
-          "wall_seconds": 0.00047670800006471836,
+          "wall_seconds": 0.0007096669869497418,
           "metrics": {
             "replacement_count": 0
           },
@@ -18460,15 +18468,15 @@
           "status": "succeeded",
           "provider": "local",
           "model": "thread scheduling and uninstrumented orchestration",
-          "wall_seconds": 0.0000062919999663790804,
+          "wall_seconds": 2.9291084501892328e-05,
           "metrics": {},
           "error": null
         }
       },
       "latency": {
-        "stt_seconds": 521.027478674,
-        "downstream_seconds": 2.20435841799997,
-        "end_to_end_seconds": 523.231837092
+        "stt_seconds": 520.7334145409935,
+        "downstream_seconds": 5.462372083042283,
+        "end_to_end_seconds": 526.1957866240358
       },
       "error": null
     }

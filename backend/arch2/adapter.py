@@ -26,10 +26,33 @@ _HINT_PATTERNS = {
     "PHONE_NUMBER": re.compile(r"(?<!\w)(?:\+?1[ .-]?)?(?:\(\d{3}\)|\d{3})[ .-]\d{3}[ .-]\d{4}(?!\w)"),
     "SSN": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
     "CREDIT_CARD": re.compile(r"\b(?:\d[ -]*?){13,19}\b"),
+    "ACCOUNT_NUMBER": re.compile(
+        r"(?<![A-Z0-9])(?:[A-Z]{2}[ -]?)?\d{4}[ -]?\d{4}(?![A-Z0-9])",
+        re.I,
+    ),
     "IP_ADDRESS": re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
     "DATE_OF_BIRTH": re.compile(r"\b(?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12]\d|3[01])[/-](?:19|20)\d{2}\b"),
 }
 _TYPED_PLACEHOLDER = re.compile(r"\[([A-Z][A-Z0-9]*(?:[ _-][A-Z0-9]+)*)\]")
+
+
+def compact_summary_conversation(
+    conversation: Mapping[str, Any],
+) -> list[dict[str, str]]:
+    """Project canonical turns to compact participant/text segments for summarization."""
+    projected: list[dict[str, str]] = []
+    for item in conversation.get("conversationItems", []):
+        if not isinstance(item, Mapping):
+            continue
+        text = str(item.get("text", "")).strip()
+        if not text:
+            continue
+        participant = str(item.get("participantId", "")).strip() or "UNKNOWN"
+        if projected and projected[-1]["participant"] == participant:
+            projected[-1]["text"] = f"{projected[-1]['text']} {text}"
+        else:
+            projected.append({"participant": participant, "text": text})
+    return projected
 
 
 def detect_regex_hints(conversation: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -168,17 +191,17 @@ class DeepSeekProcessor:
 
         started = self.clock()
         system_prompt = self.system_prompt_path.read_text()
+        compact_conversation = compact_summary_conversation(source_snapshot)
         user_content = json.dumps(
             {
                 "instruction": (
-                    "Return only JSON matching the supplied response schema with one concise call "
-                    "summary. Replace every PII value with a typed [CATEGORY] placeholder such as "
-                    "[PERSON], [PHONE_NUMBER], or [DATE_OF_BIRTH]. Do not reproduce the "
-                    "conversation, individual turns, speaker labels, timestamps, IDs, channel "
-                    "metadata, or any raw PII."
+                    "Return only JSON matching the supplied response schema with one concise, "
+                    "PII-safe call summary of 80-120 words. Replace every PII value with a typed "
+                    "[CATEGORY] placeholder such as [PERSON], [PHONE_NUMBER], or "
+                    "[DATE_OF_BIRTH]. Do not reproduce the conversation, individual turns, "
+                    "speaker labels, or any raw PII."
                 ),
-                "canonicalConversation": source_snapshot,
-                "regexCandidateHints": regex_hints,
+                "conversation": compact_conversation,
             },
             ensure_ascii=False,
         )
@@ -259,6 +282,11 @@ class DeepSeekProcessor:
                 "succeeded", provider="backend + Microsoft Entra ID",
                 model="prompt serialization and token acquisition",
                 wall_seconds=preparation_seconds,
+                metrics={
+                    "source_turn_count": len(source_snapshot["conversationItems"]),
+                    "projected_segment_count": len(compact_conversation),
+                    "user_content_characters": len(user_content),
+                },
             ),
             "llm_api_call": stage_result(
                 "succeeded", provider="Azure AI Foundry", model=self.deployment,

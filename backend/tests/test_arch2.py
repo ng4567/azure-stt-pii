@@ -1,18 +1,26 @@
 import json
 import unittest
 from copy import deepcopy
+from pathlib import Path
 from unittest.mock import Mock, patch
 
-from backend.arch2 import Architecture2Adapter, DeepSeekProcessor
+from backend.arch2 import (
+    Architecture2Adapter,
+    DeepSeekProcessor,
+    compact_summary_conversation,
+)
+from backend.arch2.adapter import detect_regex_hints, sanitize_summary_with_hints
 
 
 SOURCE = {
     "transcript": "Call Eleanor at 202-555-0148.",
     "conversation": {
         "id": "call",
+        "channelMap": {"1": "CUSTOMER"},
         "conversationItems": [{
             "id": "turn-0001", "participantId": "CUSTOMER", "channel": 1,
             "offset": 10, "duration": 20,
+            "language": "en-US", "modality": "speech",
             "text": "Call Eleanor at 202-555-0148.",
         }],
     },
@@ -43,6 +51,64 @@ class Architecture2Tests(unittest.TestCase):
             endpoint="https://example.openai.azure.com", deployment="deepseek",
             credential=Credential(), http_post=post,
         )
+
+    def test_compact_projection_coalesces_consecutive_participants(self):
+        conversation = {
+            "id": "call-id",
+            "channelMap": {"1": "CUSTOMER"},
+            "conversationItems": [
+                {
+                    "id": "turn-1",
+                    "participantId": "CUSTOMER",
+                    "channel": 1,
+                    "offset": 10,
+                    "duration": 20,
+                    "language": "en-US",
+                    "modality": "speech",
+                    "text": " First sentence. ",
+                },
+                {
+                    "id": "turn-2",
+                    "participantId": "CUSTOMER",
+                    "channel": 1,
+                    "offset": 30,
+                    "duration": 10,
+                    "text": "Second sentence.",
+                },
+                {
+                    "id": "turn-3",
+                    "participantId": "REP",
+                    "channel": 2,
+                    "text": "A response.",
+                },
+                {"id": "turn-4", "participantId": "REP", "text": "   "},
+                {"id": "turn-5", "text": "Unattributed note."},
+            ],
+        }
+
+        result = compact_summary_conversation(conversation)
+
+        self.assertEqual(
+            result,
+            [
+                {
+                    "participant": "CUSTOMER",
+                    "text": "First sentence. Second sentence.",
+                },
+                {"participant": "REP", "text": "A response."},
+                {"participant": "UNKNOWN", "text": "Unattributed note."},
+            ],
+        )
+        self.assertEqual(conversation["conversationItems"][0]["text"], " First sentence. ")
+
+    def test_system_prompt_sets_summary_range_without_hint_instructions(self):
+        prompt = (
+            Path(__file__).resolve().parents[2] / "data" / "system_prompt.txt"
+        ).read_text()
+
+        self.assertIn("80-120 words", prompt)
+        self.assertNotIn("candidate hint", prompt.casefold())
+        self.assertIn("Return only the summary field", prompt)
 
     @patch("pathlib.Path.read_text", return_value="prompt")
     def test_openai_v1_endpoint_omits_legacy_api_version(self, _read_text):
@@ -84,19 +150,43 @@ class Architecture2Tests(unittest.TestCase):
         request = post.call_args.kwargs["json"]
         self.assertEqual(request["messages"][0]["content"], "system prompt\nexactly")
         user_content = json.loads(request["messages"][1]["content"])
-        self.assertEqual(user_content["canonicalConversation"], SOURCE["conversation"])
         self.assertEqual(
-            user_content["regexCandidateHints"],
-            [{
-                "category": "PHONE_NUMBER",
-                "turnId": "turn-0001",
-                "offset": 16,
-                "length": 12,
-                "text": "202-555-0148",
-            }],
+            user_content,
+            {
+                "instruction": (
+                    "Return only JSON matching the supplied response schema with one concise, "
+                    "PII-safe call summary of 80-120 words. Replace every PII value with a typed "
+                    "[CATEGORY] placeholder such as [PERSON], [PHONE_NUMBER], or "
+                    "[DATE_OF_BIRTH]. Do not reproduce the conversation, individual turns, "
+                    "speaker labels, or any raw PII."
+                ),
+                "conversation": [{
+                    "participant": "CUSTOMER",
+                    "text": "Call Eleanor at 202-555-0148.",
+                }],
+            },
         )
-        self.assertIn("one concise call summary", user_content["instruction"])
-        self.assertIn("Do not reproduce the conversation", user_content["instruction"])
+        serialized_user_content = request["messages"][1]["content"]
+        self.assertNotIn(SOURCE["conversation"]["id"], json.dumps(user_content["conversation"]))
+        serialized_keys = {
+            key
+            for segment in user_content["conversation"]
+            for key in segment
+        }
+        for omitted in (
+            "channel",
+            "offset",
+            "duration",
+            "language",
+            "modality",
+            "channelMap",
+            "regexCandidateHints",
+            "turnId",
+            "id",
+        ):
+            self.assertNotIn(omitted, serialized_keys)
+        self.assertNotIn("regexCandidateHints", user_content)
+        self.assertEqual(serialized_user_content.count("202-555-0148"), 1)
         self.assertEqual(
             request["response_format"]["json_schema"]["schema"],
             {
@@ -130,6 +220,13 @@ class Architecture2Tests(unittest.TestCase):
         self.assertEqual(
             result["stages"]["regex_detection"]["metrics"]["candidate_count"],
             1,
+        )
+        preparation_metrics = result["stages"]["request_preparation"]["metrics"]
+        self.assertEqual(preparation_metrics["source_turn_count"], 1)
+        self.assertEqual(preparation_metrics["projected_segment_count"], 1)
+        self.assertEqual(
+            preparation_metrics["user_content_characters"],
+            len(serialized_user_content),
         )
         self.assertEqual(
             result["stages"]["summary_sanitization"]["metrics"]["replacement_count"],
@@ -172,6 +269,7 @@ class Architecture2Tests(unittest.TestCase):
             "EMAIL": "Customer@example.com",
             "SSN": "123-45-6789",
             "CREDIT_CARD": "4111 1111 1111 1111",
+            "ACCOUNT_NUMBER": "NS49382176",
             "IP_ADDRESS": "192.168.10.25",
             "DATE_OF_BIRTH": "01/02/1980",
         }
@@ -208,6 +306,21 @@ class Architecture2Tests(unittest.TestCase):
             result["stages"]["summary_sanitization"]["metrics"]["replacement_count"],
             len(literals),
         )
+
+    def test_account_number_separator_variants_are_detected_and_sanitized(self):
+        variants = ["NS49382176", "NS 4938 2176", "4938-2176"]
+        text = " | ".join(variants)
+        conversation = {
+            "conversationItems": [
+                {"id": "turn-1", "participantId": "CUSTOMER", "text": text}
+            ]
+        }
+
+        hints = detect_regex_hints(conversation)
+        summary, replacements = sanitize_summary_with_hints(text, hints)
+
+        self.assertEqual(summary, " | ".join(["[ACCOUNT_NUMBER]"] * 3))
+        self.assertEqual(replacements, 3)
 
     @patch("pathlib.Path.read_text", return_value="prompt")
     def test_exported_processor_supports_custom_identity(self, _read_text):

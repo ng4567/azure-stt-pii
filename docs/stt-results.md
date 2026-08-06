@@ -52,9 +52,9 @@ CUSTOMER on channel 1, and 113 channel-local VAD utterances.
 
 | Variant | WER | Accuracy | Mean lag | p95 lag | Transcript ready | Turns |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1. Azure Speech real-time | 5.36% | 94.64% | 0.77s | 0.93s | 504.95s | 85 |
-| 2. MAI real-time | **3.34%** | **96.66%** | 0.79s | 0.94s | **504.42s** | 112 |
-| 3. MAI post-call VAD utterances | 4.15% | 95.85% | 16.86s turnaround | n/a | 521.03s | 112 |
+| 1. Azure Speech real-time | 5.36% | 94.64% | **0.76s** | **0.97s** | 504.72s | 85 |
+| 2. MAI real-time | **3.34%** | **96.66%** | 0.82s | 0.97s | **504.48s** | 112 |
+| 3. MAI post-call VAD utterances | 4.04% | 95.96% | 16.57s turnaround | n/a | 520.73s | 112 |
 
 | Variant | REP WER | CUSTOMER WER |
 | --- | --- | --- |
@@ -73,7 +73,7 @@ despite the general fast-transcription feature table advertising segment timesta
 Those two channel-sized strings cannot be interleaved into trustworthy turns.
 Variant 3 therefore sends the 113 channel-local VAD utterances concurrently after the
 call. This preserves measured offsets and valid Conversation PII items, at the cost of
-request fan-out and 16.86s turnaround instead of the old 7.8s whole-file turnaround.
+request fan-out and 16.57s turnaround instead of the old 7.8s whole-file turnaround.
 
 ### Original mono baseline
 
