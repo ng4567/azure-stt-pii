@@ -46,6 +46,10 @@ export function describeUpload(upload: UploadMeta): string {
         `${characters.toLocaleString()} chars`,
     );
   }
+  if (upload.pii_ground_truth) {
+    const { filename, entities } = upload.pii_ground_truth;
+    parts.push(`PII ground truth: ${filename ?? "annotations.json"} · ${entities} entities`);
+  }
   return parts.join("  |  ");
 }
 
@@ -80,6 +84,9 @@ export function renderUploads(
           }</span>
           <span class="badge ${upload.transcript ? "done" : "pending"}">${
             upload.transcript ? "reference transcript" : "no reference"
+          }</span>
+          <span class="badge ${upload.pii_ground_truth ? "done" : "pending"}">${
+            upload.pii_ground_truth ? "PII ground truth" : "PII unscored"
           }</span>
         </div>`;
 
@@ -207,6 +214,31 @@ export function renderMetricsTable(
     `Audio estimates multiply duration by channel count. DeepSeek cached-input pricing is configured but unused because cache usage is not reported. ` +
     `Hosting, storage, logging, and Voice Live host-model charges are excluded.`;
   wrapper.append(pricingHeading, pricingTable, pricingNote);
+
+  const piiHeading = document.createElement("h3");
+  piiHeading.textContent = "PII redaction accuracy";
+  wrapper.append(piiHeading);
+  const piiEntries = Object.entries(report.pii_accuracy ?? {});
+  if (piiEntries.length === 0) {
+    const unavailable = document.createElement("p");
+    unavailable.className = "row-meta";
+    unavailable.textContent =
+      "PII accuracy not scored. This report has no architecture-independent ground-truth annotations.";
+    wrapper.append(unavailable);
+  } else {
+    const table = document.createElement("table");
+    table.innerHTML = `
+      <thead><tr><th>Architecture</th><th>Precision</th><th>Recall</th><th>F1</th><th>Category accuracy</th><th>PII leakage</th><th>Alignment</th><th>TP / FP / FN</th></tr></thead>
+      <tbody>${piiEntries.map(([architectureId, metrics]) => {
+        const label = report.architectures?.[architectureId]?.label ?? architectureId;
+        return `<tr><td>${label}</td><td class="numeric">${formatPercent(metrics.precision)}</td><td class="numeric">${formatPercent(metrics.recall)}</td><td class="numeric">${formatPercent(metrics.f1)}</td><td class="numeric">${metrics.category_accuracy === null ? "—" : formatPercent(metrics.category_accuracy)}</td><td class="numeric">${formatPercent(metrics.pii_leakage_rate)}</td><td class="numeric">${formatPercent(metrics.alignment_rate)} (${metrics.expected_entities}/${metrics.ground_truth_entities})</td><td class="numeric">${metrics.true_positives} / ${metrics.false_positives} / ${metrics.false_negatives}</td></tr>`;
+      }).join("")}</tbody>`;
+    const note = document.createElement("p");
+    note.className = "row-meta";
+    note.textContent =
+      "Exact source-turn spans determine precision, recall, F1, and leakage. Category accuracy is measured on matched spans; alignment excludes reference entities lost or changed by STT.";
+    wrapper.append(table, note);
+  }
 
   for (const [, entry] of entries) {
     if (!entry.transcript && !entry.conversation) continue;

@@ -12,6 +12,9 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 
+from backend.pii_accuracy import load_ground_truth
+from data import stt
+
 from . import jobs, uploads
 from .config import ALLOWED_ORIGINS, ensure_dirs
 
@@ -83,12 +86,15 @@ def get_default_transcript() -> FileResponse:
 def create_upload(
     audio: UploadFile | None = File(default=None),
     transcript: UploadFile | None = File(default=None),
+    pii_ground_truth: UploadFile | None = File(default=None),
     channel_0_participant: str = Form(default="REP"),
     channel_1_participant: str = Form(default="CUSTOMER"),
 ) -> dict:
     """Register an audio file, a reference transcript, or both."""
     if audio is None and transcript is None:
         raise HTTPException(400, "Upload an audio file, a transcript, or both.")
+    if pii_ground_truth is not None and transcript is None:
+        raise HTTPException(400, "PII ground truth requires a reference transcript.")
 
     with tempfile.TemporaryDirectory() as scratch:
         directory = Path(scratch)
@@ -98,13 +104,21 @@ def create_upload(
             audio_source = uploads.BUILTINS[uploads.DEFAULT_UPLOAD_ID][0]
             audio_filename = audio_source.name
         transcript_source = _spool(transcript, directory) if transcript else None
+        pii_ground_truth_source = _spool(pii_ground_truth, directory) if pii_ground_truth else None
 
         try:
+            if pii_ground_truth_source is not None and transcript_source is not None:
+                load_ground_truth(
+                    pii_ground_truth_source,
+                    stt.reference_text(transcript_source),
+                )
             return uploads.create(
                 audio_source,
                 audio_filename,
                 transcript_source,
                 transcript.filename if transcript else None,
+                pii_ground_truth_source=pii_ground_truth_source,
+                pii_ground_truth_filename=pii_ground_truth.filename if pii_ground_truth else None,
                 channel_map={
                     0: channel_0_participant,
                     1: channel_1_participant,

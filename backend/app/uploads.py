@@ -12,6 +12,7 @@ from .config import BENCHMARK_DIR, UPLOAD_DIR
 META_NAME = "upload.json"
 PREPARED_AUDIO = "audio.wav"
 TRANSCRIPT_NAME = "transcript.txt"
+PII_GROUND_TRUTH_NAME = "pii-ground-truth.json"
 
 # The turn-ready fixture is the single built-in used by the frontend. The mono file
 # remains available to the CLI as a historical baseline, not as a competing UI input.
@@ -24,7 +25,8 @@ BUILTINS = {
     ),
 }
 BUILTIN_TRANSCRIPT = BENCHMARK_DIR / "mock-call-transcript.txt"
-BUILTIN_SCHEMA_VERSION = 2
+BUILTIN_PII_GROUND_TRUTH = BENCHMARK_DIR / "mock-call-pii-ground-truth.json"
+BUILTIN_SCHEMA_VERSION = 3
 
 
 def _now() -> str:
@@ -70,6 +72,9 @@ def create(
     audio_filename: str | None,
     transcript_source: Path | None,
     transcript_filename: str | None,
+    *,
+    pii_ground_truth_source: Path | None = None,
+    pii_ground_truth_filename: str | None = None,
     upload_id: str | None = None,
     builtin: bool = False,
     label: str | None = None,
@@ -87,6 +92,7 @@ def create(
         "label": label,
         "audio": None,
         "transcript": None,
+        "pii_ground_truth": None,
     }
 
     if audio_source is not None:
@@ -133,6 +139,20 @@ def create(
             "lines": len(text.splitlines()),
         }
 
+    if pii_ground_truth_source is not None:
+        target = directory / PII_GROUND_TRUTH_NAME
+        shutil.copyfile(pii_ground_truth_source, target)
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("PII ground truth must be a JSON object.")
+        entities = payload.get("entities")
+        if not isinstance(entities, list):
+            raise ValueError("PII ground truth must contain an entities array.")
+        meta["pii_ground_truth"] = {
+            "filename": pii_ground_truth_filename,
+            "entities": len(entities),
+        }
+
     _write_meta(upload_id, meta)
     return meta
 
@@ -144,6 +164,11 @@ def audio_path(upload_id: str) -> Path | None:
 
 def transcript_path(upload_id: str) -> Path | None:
     path = upload_dir(upload_id) / TRANSCRIPT_NAME
+    return path if path.is_file() else None
+
+
+def pii_ground_truth_path(upload_id: str) -> Path | None:
+    path = upload_dir(upload_id) / PII_GROUND_TRUTH_NAME
     return path if path.is_file() else None
 
 
@@ -164,7 +189,7 @@ def ensure_builtins() -> list[dict]:
     """Seed available checked-in fixtures, refreshing them when sources change."""
     seeded = []
     for upload_id, (audio, label, channel_map) in BUILTINS.items():
-        if not audio.is_file() or not BUILTIN_TRANSCRIPT.is_file():
+        if not audio.is_file() or not BUILTIN_TRANSCRIPT.is_file() or not BUILTIN_PII_GROUND_TRUTH.is_file():
             continue
         fingerprint = _builtin_fingerprint(audio)
         existing = load(upload_id)
@@ -182,6 +207,8 @@ def ensure_builtins() -> list[dict]:
             audio.name,
             BUILTIN_TRANSCRIPT,
             BUILTIN_TRANSCRIPT.name,
+            pii_ground_truth_source=BUILTIN_PII_GROUND_TRUTH,
+            pii_ground_truth_filename=BUILTIN_PII_GROUND_TRUTH.name,
             upload_id=upload_id,
             builtin=True,
             label=label,
@@ -197,5 +224,5 @@ def ensure_builtins() -> list[dict]:
 def _builtin_fingerprint(audio: Path) -> str:
     return "|".join(
         f"{path.stat().st_size}:{int(path.stat().st_mtime)}"
-        for path in (audio, BUILTIN_TRANSCRIPT)
+        for path in (audio, BUILTIN_TRANSCRIPT, BUILTIN_PII_GROUND_TRUTH)
     )

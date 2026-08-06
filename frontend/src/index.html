@@ -24,6 +24,11 @@
           Audio is optional: when omitted, the built-in call is used. Uploading only a
           transcript scores that same call against your reference.
         </p>
+        <p class="row-meta">
+          Each completed run recalculates pricing from the submitted audio and measured
+          processing usage. Accuracy is recalculated when a reference transcript is
+          provided; without one, the run is marked unscored.
+        </p>
         <form id="upload-form">
           <div class="fields">
             <label>
@@ -33,6 +38,10 @@
             <label>
               <span>Reference transcript <em>(.txt, optional)</em></span>
               <input type="file" id="transcript-input" accept=".txt,text/plain" />
+            </label>
+            <label>
+              <span>PII ground truth <em>(.json, requires reference)</em></span>
+              <input type="file" id="pii-ground-truth-input" accept=".json,application/json" />
             </label>
             <label>
               <span>Channel 0 participant</span>
@@ -54,12 +63,23 @@
         <h2>Cached default comparison</h2>
         <p class="row-meta">
           Last saved results for the built-in call. Viewing these does not call Azure.
-          Download the
-          <a href="/api/benchmark/default/audio">default audio</a>
-          or
-          <a href="/api/benchmark/default/transcript">default transcript</a>
-          used for this comparison.
+          View the source files in this repository:
+          <a
+            href="https://github.com/ng4567/azure-stt-pii/blob/main/data/mock-call-stereo.wav"
+            target="_blank"
+            rel="noreferrer"
+          >default audio</a>
+          and
+          <a
+            href="https://github.com/ng4567/azure-stt-pii/blob/main/data/mock-call-transcript.txt"
+            target="_blank"
+            rel="noreferrer"
+          >reference transcript</a>.
         </p>
+        <details id="default-transcript" class="default-transcript">
+          <summary>View the default reference transcript</summary>
+          <pre id="default-transcript-text" class="transcript-text">Loading transcript…</pre>
+        </details>
         <div id="cached-results"><p class="empty">Loading cached results…</p></div>
       </section>
 

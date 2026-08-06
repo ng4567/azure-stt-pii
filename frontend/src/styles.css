@@ -47,6 +47,19 @@ h2 {
   max-width: 68ch;
 }
 
+a {
+  color: #8ab4ff;
+}
+
+a:visited {
+  color: #c3a6ff;
+}
+
+a:hover,
+a:focus-visible {
+  color: #b9d1ff;
+}
+
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -273,6 +286,16 @@ summary {
   cursor: pointer;
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.default-transcript {
+  margin-bottom: 1rem;
+}
+
+.default-transcript .transcript-text {
+  min-height: 240px;
+  max-height: 480px;
+  margin-top: 0.75rem;
 }
 
 pre {

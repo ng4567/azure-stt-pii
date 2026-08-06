@@ -140,6 +140,23 @@ const succeededJob: Job = {
         },
       },
     },
+    pii_accuracy: {
+      "architecture-1": {
+        ground_truth_entities: 26,
+        expected_entities: 25,
+        predicted_entities: 25,
+        unaligned_ground_truth_entities: 1,
+        true_positives: 24,
+        false_positives: 1,
+        false_negatives: 1,
+        precision: 0.96,
+        recall: 0.96,
+        f1: 0.96,
+        category_accuracy: 1,
+        pii_leakage_rate: 0.04,
+        alignment_rate: 25 / 26,
+      },
+    },
   },
 };
 
@@ -233,17 +250,22 @@ test("a succeeded job renders the metrics table and transcripts", () => {
   expect(text).toContain("Estimated processing cost");
   expect(text).toContain("Discounted total");
   expect(text).toContain("90% on Azure Speech and MAI-Transcribe");
+  expect(text).toContain("PII redaction accuracy");
+  expect(text).toContain("96.00%");
+  expect(text).toContain("24 / 1 / 1");
   expect(node.querySelectorAll("table:first-of-type tbody tr").length).toBe(2);
   expect(node.querySelectorAll("details").length).toBe(4);
 });
 
 test("cached default results render as an architecture comparison", () => {
   const node = panel();
-  renderCachedBenchmark(node, succeededJob.result!);
+  const { pii_accuracy: _, ...historical } = succeededJob.result!;
+  renderCachedBenchmark(node, historical);
 
   expect(node.textContent).toContain("Azure Speech real-time");
   expect(node.textContent).toContain("MAI-Transcribe-1.5 batch");
   expect(node.textContent).toContain("Scored against 166 reference words");
+  expect(node.textContent).toContain("PII accuracy not scored");
 });
 
 test("a failed engine does not sink the rest of the report", () => {

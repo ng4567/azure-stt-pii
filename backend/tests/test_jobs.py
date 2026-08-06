@@ -132,8 +132,9 @@ class JobIntegrationTests(unittest.TestCase):
                 "architectures": {"architecture-1": "pending"},
             }
             with (
-                patch.object(jobs.uploads, "load", return_value={"channel_map": {}}),
+                patch.object(jobs.uploads, "load", return_value={"id": "upload", "channel_map": {}}),
                 patch.object(jobs.uploads, "upload_dir", return_value=output),
+                patch.object(jobs.uploads, "pii_ground_truth_path", return_value=None),
                 patch.object(jobs.stt, "run_benchmark", return_value=report) as benchmark,
                 patch.object(jobs, "run_architectures", return_value=architecture_results) as downstream,
             ):
@@ -143,6 +144,40 @@ class JobIntegrationTests(unittest.TestCase):
             downstream.assert_called_once()
             self.assertEqual(jobs.get("job")["status"], "succeeded")
             self.assertEqual(jobs.get("job")["result"]["architectures"], architecture_results)
+
+    def test_run_scores_existing_architecture_results_when_annotations_exist(self) -> None:
+        report = {"engines": {key: source_entry(key) for key in ENGINE_KEYS}}
+        architecture_results = {"architecture-1": {"status": "succeeded"}}
+        scores = {"architecture-1": {"f1": 1.0}}
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            annotation_path = output / "truth.json"
+            transcript_path = output / "transcript.txt"
+            annotation_path.write_text("{}", encoding="utf-8")
+            transcript_path.write_text("REP: Hello.", encoding="utf-8")
+            jobs._jobs["job"] = {
+                "id": "job",
+                "upload_id": "upload",
+                "status": "queued",
+                "engines": {key: "pending" for key in ENGINE_KEYS},
+                "architectures": {"architecture-1": "pending"},
+            }
+            with (
+                patch.object(jobs.uploads, "load", return_value={"id": "upload", "channel_map": {}}),
+                patch.object(jobs.uploads, "upload_dir", return_value=output),
+                patch.object(jobs.uploads, "pii_ground_truth_path", return_value=annotation_path),
+                patch.object(jobs.stt, "run_benchmark", return_value=report) as benchmark,
+                patch.object(jobs, "run_architectures", return_value=architecture_results) as downstream,
+                patch.object(jobs, "load_ground_truth", return_value=[]) as load_truth,
+                patch.object(jobs, "score_architectures", return_value=scores) as score,
+            ):
+                jobs._run("job", Path("audio.wav"), transcript_path)
+
+            benchmark.assert_called_once()
+            downstream.assert_called_once()
+            load_truth.assert_called_once_with(annotation_path, "Hello.")
+            score.assert_called_once_with(report, "Hello.", [])
+            self.assertEqual(jobs.get("job")["result"]["pii_accuracy"], scores)
 
 
 class ArchitectureApiTests(unittest.TestCase):

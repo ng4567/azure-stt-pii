@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "reference_sha256": "5e6697503b6aa91e6e9f9f61bb82617dbb879f976af75be73cd478c25fde934b",
+  "entities": [
+    {"category":"PERSON","text":"Maya","offset":52,"length":4},
+    {"category":"PERSON","text":"Eleanor June Whitaker","offset":347,"length":21},
+    {"category":"PERSON","text":"Ms. Whitaker","offset":513,"length":12},
+    {"category":"ADDRESS","text":"742 Evergreen Terrace","offset":1223,"length":21},
+    {"category":"ADDRESS","text":"1847 Willowbrook Lane, apartment 3B, Brookhaven, New York, 11719","offset":1340,"length":64},
+    {"category":"ADDRESS","text":"1847 Willowbrook Lane, apartment 3B, Brookhaven, New York, 11719","offset":1425,"length":64},
+    {"category":"PHONE_NUMBER","text":"202... 555... 0148","offset":1726,"length":18},
+    {"category":"PHONE_NUMBER","text":"202-555-0148","offset":1767,"length":12},
+    {"category":"EMAIL","text":"eleanor.whitaker82@example.com","offset":1944,"length":30},
+    {"category":"EMAIL","text":"eleanor.whitaker82@example.com","offset":2038,"length":30},
+    {"category":"DATE_OF_BIRTH","text":"February 29, 1944","offset":2345,"length":17},
+    {"category":"SSN","text":"last four are 9876","offset":2372,"length":18},
+    {"category":"ADDRESS","text":"88 Harbor View Drive, unit 12, Bayport, New York, 11705","offset":2587,"length":55},
+    {"category":"CREDIT_CARD","text":"4111 1111 1111 1111","offset":3735,"length":19},
+    {"category":"EXPIRATION_DATE","text":"November of 2030","offset":3796,"length":16},
+    {"category":"EXPIRATION_DATE","text":"one one, slash, three zero","offset":3822,"length":26},
+    {"category":"PERSON","text":"Ms. Whitaker","offset":3899,"length":12},
+    {"category":"SECURITY_CODE","text":"security code is 123","offset":4087,"length":20},
+    {"category":"ADDRESS","text":"Willowbrook Lane address","offset":4160,"length":24},
+    {"category":"ADDRESS","text":"1847 Willowbrook Lane, apartment 3B, Brookhaven, New York, 11719","offset":4221,"length":64},
+    {"category":"ACCOUNT_NUMBER","text":"NS-4938-2176","offset":4486,"length":12},
+    {"category":"PHONE_NUMBER","text":"202-555-0148","offset":4844,"length":12},
+    {"category":"EMAIL","text":"eleanor.whitaker82@example.com","offset":4930,"length":30},
+    {"category":"ACCOUNT_NUMBER","text":"N as in November, S as in Sam, 4938, 2176","offset":5102,"length":41},
+    {"category":"ACCOUNT_NUMBER","text":"N-S, 4938, 2176","offset":5145,"length":15},
+    {"category":"PERSON","text":"Ms. Whitaker","offset":5401,"length":12}
+  ]
+}

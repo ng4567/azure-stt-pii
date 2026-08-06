@@ -330,12 +330,29 @@ and any separate Voice Live host-model charge. Diarization is disabled. Audio du
 is conservatively multiplied by channel count because both channels are independently
 submitted.
 
-# TODO
+## PII redaction accuracy
 
-- [ ] Add proper PII-redaction accuracy calculation: maintain architecture-independent
-  ground-truth entity annotations for the reference transcript, align them with each
-  STT output, and report entity precision, recall, F1, category accuracy, and PII
-  leakage rate.
+The built-in call includes 26 fictional PII mentions in
+`data/mock-call-pii-ground-truth.json`. Annotations use character offsets in the
+flattened reference text produced by `data/stt.py:reference_text()` and include a
+SHA-256 digest so edits to the transcript cannot silently invalidate the spans. Custom
+runs can upload the same JSON format alongside a reference transcript.
+
+Because each STT engine creates different turn boundaries and recognition errors, the
+scorer monotonically aligns normalized reference words to each architecture's source
+conversation before projecting annotations into its turn IDs and offsets. Entities
+whose words are deleted, substituted, split across turns, or otherwise cannot be
+projected are reported through the **alignment rate** and are not counted as redaction
+false negatives. This separates STT loss from downstream PII-redaction loss.
+
+Projected entities are compared with provider/model entities using exact source-turn
+spans. The UI reports entity **precision**, **recall**, and **F1**; **category
+accuracy** among matched spans after normalizing provider category aliases; and **PII
+leakage rate**, equal to unmatched projected ground-truth entities divided by all
+projected ground-truth entities. It also displays alignment and TP/FP/FN counts. The
+historical cached report predates downstream entity output, so it correctly displays
+PII accuracy as not scored rather than inventing metrics; annotated live runs include
+`pii_accuracy` in the benchmark report.
 
 # Running it
 

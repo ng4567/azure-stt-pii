@@ -15,6 +15,11 @@ export interface TranscriptMeta {
   lines: number;
 }
 
+export interface PiiGroundTruthMeta {
+  filename: string | null;
+  entities: number;
+}
+
 export interface UploadMeta {
   id: string;
   created_at: string;
@@ -24,6 +29,7 @@ export interface UploadMeta {
   channel_map?: Record<string, string>;
   audio: AudioMeta | null;
   transcript: TranscriptMeta | null;
+  pii_ground_truth?: PiiGroundTruthMeta | null;
 }
 
 export interface LagStats {
@@ -133,6 +139,22 @@ export interface ArchitectureResult {
   error: string | null;
 }
 
+export interface PiiAccuracyMetrics {
+  ground_truth_entities: number;
+  expected_entities: number;
+  predicted_entities: number;
+  unaligned_ground_truth_entities: number;
+  true_positives: number;
+  false_positives: number;
+  false_negatives: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  category_accuracy: number | null;
+  pii_leakage_rate: number;
+  alignment_rate: number;
+}
+
 export interface BenchmarkReport {
   audio_seconds: number;
   channel_count: number;
@@ -146,6 +168,8 @@ export interface BenchmarkReport {
   architectures?: Record<string, ArchitectureResult>;
   /** Measured usage retained when cached reports omit full downstream results. */
   pricing_usage?: Record<string, Record<string, number>>;
+  /** Present when the run has architecture-independent PII annotations. */
+  pii_accuracy?: Record<string, PiiAccuracyMetrics>;
 }
 
 export type JobStatus = "queued" | "running" | "succeeded" | "failed";
@@ -184,6 +208,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function requestText(path: string): Promise<string> {
+  const response = await fetch(path);
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}`);
+  }
+  return response.text();
+}
+
 export const api = {
   health: () => request<{ status: string }>("/api/health"),
 
@@ -192,12 +224,14 @@ export const api = {
   createUpload(files: {
     audio?: File;
     transcript?: File;
+    piiGroundTruth?: File;
     channel0Participant?: string;
     channel1Participant?: string;
   }): Promise<UploadMeta> {
     const form = new FormData();
     if (files.audio) form.append("audio", files.audio);
     if (files.transcript) form.append("transcript", files.transcript);
+    if (files.piiGroundTruth) form.append("pii_ground_truth", files.piiGroundTruth);
     form.append("channel_0_participant", files.channel0Participant ?? "REP");
     form.append("channel_1_participant", files.channel1Participant ?? "CUSTOMER");
     return request<UploadMeta>("/api/uploads", { method: "POST", body: form });
@@ -208,6 +242,9 @@ export const api = {
 
   getDefaultBenchmark: () =>
     request<BenchmarkReport>("/api/benchmark/default"),
+
+  getDefaultTranscript: () =>
+    requestText("/api/benchmark/default/transcript"),
 
   startDefaultBenchmark: () =>
     request<Job>("/api/benchmark", { method: "POST" }),

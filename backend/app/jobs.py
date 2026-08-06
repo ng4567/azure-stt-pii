@@ -19,6 +19,7 @@ from backend.arch2 import Architecture2Adapter
 from backend.arch3 import Architecture3Adapter
 from backend.architecture import ARCHITECTURE_LABELS
 from backend.contracts import failed_architecture
+from backend.pii_accuracy import load_ground_truth, score_architectures
 
 from . import uploads
 from .config import MAX_CONCURRENT_JOBS
@@ -147,6 +148,11 @@ def _run(job_id: str, audio: Path, transcript: Path | None) -> None:
                 job_id, architecture_id, state
             ),
         )
+        annotations = uploads.pii_ground_truth_path(upload["id"])
+        if transcript is not None and annotations is not None:
+            reference = stt.reference_text(transcript)
+            ground_truth = load_ground_truth(annotations, reference)
+            report["pii_accuracy"] = score_architectures(report, reference, ground_truth)
     except Exception as error:
         _update(
             job_id,
