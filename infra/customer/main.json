@@ -1,0 +1,145 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.46.1.21595",
+      "templateHash": "6309210623100924254"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "eastus2",
+      "metadata": {
+        "description": "Deployment region for the resource group and Fabric capacity."
+      }
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource group that contains the customer-owned Fabric capacity and Oracle database."
+      }
+    },
+    "fabricCapacityName": {
+      "type": "string",
+      "metadata": {
+        "description": "Lowercase alphanumeric Fabric capacity resource name."
+      }
+    },
+    "fabricCapacityAdministrator": {
+      "type": "string",
+      "metadata": {
+        "description": "Fabric capacity administrator UPN in the same Entra tenant as the subscription."
+      }
+    },
+    "fabricSku": {
+      "type": "string",
+      "defaultValue": "F2",
+      "allowedValues": [
+        "F2"
+      ],
+      "metadata": {
+        "description": "Lowest paid Fabric SKU that supports data agents."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2025-04-01",
+      "name": "[parameters('resourceGroupName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "fabricCapacity",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "capacityAdministrator": {
+            "value": "[parameters('fabricCapacityAdministrator')]"
+          },
+          "capacityName": {
+            "value": "[parameters('fabricCapacityName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "skuName": {
+            "value": "[parameters('fabricSku')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.46.1.21595",
+              "templateHash": "5041807370668815781"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "capacityName": {
+              "type": "string"
+            },
+            "capacityAdministrator": {
+              "type": "string"
+            },
+            "skuName": {
+              "type": "string"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Fabric/capacities",
+              "apiVersion": "2025-01-15-preview",
+              "name": "[parameters('capacityName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "[parameters('skuName')]",
+                "tier": "Fabric"
+              },
+              "properties": {
+                "administration": {
+                  "members": [
+                    "[parameters('capacityAdministrator')]"
+                  ]
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "capacityId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Fabric/capacities', parameters('capacityName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "resourceGroupId": {
+      "type": "string",
+      "value": "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+    },
+    "fabricCapacityId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'fabricCapacity'), '2025-04-01').outputs.capacityId.value]"
+    }
+  }
+}

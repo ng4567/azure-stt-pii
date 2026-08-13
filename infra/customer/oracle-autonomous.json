@@ -1,0 +1,95 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.46.1.21595",
+      "templateHash": "7051898966529154653"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Region where Oracle Database@Azure is enabled for the customer."
+      }
+    },
+    "databaseName": {
+      "type": "string",
+      "metadata": {
+        "description": "Autonomous Database name, maximum 30 characters."
+      }
+    },
+    "customerContactEmail": {
+      "type": "string",
+      "metadata": {
+        "description": "Notification contact required by Oracle Database@Azure."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Initial ADMIN password. Pass this from a secure deployment parameter source."
+      }
+    },
+    "whitelistedIps": {
+      "type": "array",
+      "metadata": {
+        "description": "Network CIDR ranges allowed to reach the database. Use customer egress ranges only."
+      }
+    },
+    "dbVersion": {
+      "type": "string",
+      "metadata": {
+        "description": "Oracle Database version enabled in the customer Oracle subscription."
+      }
+    },
+    "storageGiB": {
+      "type": "int",
+      "defaultValue": 20,
+      "minValue": 20,
+      "metadata": {
+        "description": "Minimum Autonomous Database storage allocation in GiB."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Oracle.Database/autonomousDatabases",
+      "apiVersion": "2025-09-01",
+      "name": "[parameters('databaseName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "adminPassword": "[parameters('adminPassword')]",
+        "autonomousMaintenanceScheduleType": "Regular",
+        "characterSet": "AL32UTF8",
+        "computeCount": 1,
+        "computeModel": "ECPU",
+        "customerContacts": [
+          {
+            "email": "[parameters('customerContactEmail')]"
+          }
+        ],
+        "dataBaseType": "Regular",
+        "dataStorageSizeInGbs": "[parameters('storageGiB')]",
+        "dbVersion": "[parameters('dbVersion')]",
+        "dbWorkload": "OLTP",
+        "displayName": "[parameters('databaseName')]",
+        "isAutoScalingEnabled": false,
+        "isAutoScalingForStorageEnabled": false,
+        "isMtlsConnectionRequired": true,
+        "licenseModel": "LicenseIncluded",
+        "ncharacterSet": "AL16UTF16",
+        "openMode": "ReadWrite",
+        "whitelistedIps": "[parameters('whitelistedIps')]"
+      }
+    }
+  ],
+  "outputs": {
+    "databaseId": {
+      "type": "string",
+      "value": "[resourceId('Oracle.Database/autonomousDatabases', parameters('databaseName'))]"
+    }
+  }
+}

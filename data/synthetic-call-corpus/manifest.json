@@ -1,0 +1,18 @@
+{
+  "cancellations": 20,
+  "competitors": {
+    "AT&T": 17,
+    "Comcast": 17,
+    "Cox": 17,
+    "T-Mobile": 16,
+    "Verizon": 17
+  },
+  "escalations": 20,
+  "queues": {
+    "billing": 20,
+    "retention": 20,
+    "sales": 20,
+    "technical_support": 40
+  },
+  "record_count": 100
+}

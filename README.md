@@ -107,6 +107,14 @@ subscription deployment. Use `--parameters foundryName=<globally-unique-name>` t
 override the generated Foundry resource name. The deployment outputs map directly to
 `AZURE_FOUNDRY_ENDPOINT` and `AZURE_FOUNDRY_DEPLOYMENT`.
 
+## Customer Oracle-to-OneLake deployment
+
+For a customer-reproducible architecture that stores PII-safe call analytics in
+Oracle Database@Azure and copies curated fields into OneLake before Fabric Data Agent
+analysis, see [`infra/customer/README.md`](infra/customer/README.md). It includes
+the Fabric F2 capacity template, Oracle Autonomous Database template, Oracle schema,
+and a deterministic 100-call PII-safe demo corpus generator.
+
 ---
 
 # STT Benchmark
