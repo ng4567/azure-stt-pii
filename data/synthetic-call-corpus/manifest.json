@@ -1,18 +1,32 @@
 {
   "cancellations": 20,
-  "competitors": {
+  "competitor_calls": {
     "AT&T": 17,
     "Comcast": 17,
     "Cox": 17,
     "T-Mobile": 16,
     "Verizon": 17
   },
+  "competitor_mentions": {
+    "AT&T": 33,
+    "Comcast": 33,
+    "Cox": 33,
+    "T-Mobile": 31,
+    "Verizon": 33
+  },
   "escalations": 20,
+  "monthly_revenue_on_competitor_cancellation_calls_usd": 1735,
   "queues": {
     "billing": 20,
     "retention": 20,
     "sales": 20,
     "technical_support": 40
   },
-  "record_count": 100
+  "record_count": 100,
+  "regions": {
+    "central": 33,
+    "east": 34,
+    "west": 33
+  },
+  "repeat_contacts": 15
 }

@@ -109,11 +109,13 @@ override the generated Foundry resource name. The deployment outputs map directl
 
 ## Customer Oracle-to-OneLake deployment
 
-For a customer-reproducible architecture that stores PII-safe call analytics in
-Oracle Database@Azure and copies curated fields into OneLake before Fabric Data Agent
-analysis, see [`infra/customer/README.md`](infra/customer/README.md). It includes
-the Fabric F2 capacity template, Oracle Autonomous Database template, Oracle schema,
-and a deterministic 100-call PII-safe demo corpus generator.
+[`infra/customer/`](infra/customer/README.md) contains a reproducible deployment for
+the downstream analytics architecture: PII-safe call analytics land in the customer's
+existing Oracle database, replicate into OneLake through Fabric Mirroring, and are
+queried in natural language by a Fabric Data Agent. It includes the Fabric capacity
+template with pre-flight checks, an Oracle 19c schema with the Mirroring
+prerequisites, a deterministic 100-call PII-safe corpus generator, and a determinism
+harness that scores the agent's answers against a hand-written SQL baseline.
 
 ---
 

@@ -1,60 +1,143 @@
-# Customer deployment: Oracle to OneLake analytics
+# Customer deployment: Oracle to OneLake call analytics
 
-This folder provisions the Azure control-plane components for the call-transcript
-analytics architecture:
+Reproducible infrastructure for the call-transcript analytics architecture:
 
 ```text
-Architecture 2 service -> Oracle Autonomous Database -> Fabric Data Factory pipeline
--> OneLake Warehouse/Lakehouse -> Fabric Data Agent
+call audio
+  -> speech-to-text + PII redaction  (existing Architecture 2 service)
+  -> Oracle Database                 (existing system of record)
+  -> Fabric Mirroring                (near-real-time replication, no ETL)
+  -> OneLake                         (Delta, queryable by every Fabric engine)
+  -> Fabric Data Agent               (governed natural-language analytics)
 ```
+
+Only PII-safe summaries and normalized attributes cross into the analytics
+store. Raw audio and unredacted transcripts stay in whatever governed store
+already holds them.
+
+## Why Mirroring rather than a copy pipeline
+
+[Fabric Mirroring for Oracle](https://learn.microsoft.com/fabric/mirroring/oracle)
+replicates Oracle tables into OneLake continuously by reading redo through
+LogMiner. It matters here for three reasons:
+
+1. **It is hosting-agnostic.** Mirroring supports Oracle 10 and above on
+   on-premises hardware, Azure VMs, OCI, Oracle Database@Azure, and Exadata. The
+   architecture does not have to be re-planned when the exact production
+   deployment model is confirmed.
+2. **The replication compute is free.** Microsoft does not charge for the
+   compute that replicates data into OneLake, nor for mirrored-table storage up
+   to the capacity's included allowance. Cost is incurred when the data is
+   queried. A scheduled copy pipeline consumes capacity units on every run.
+3. **There is no ETL to maintain.** No watermark column, no incremental-load
+   logic, no pipeline to debug when the schema changes.
+
+A Data Factory copy pipeline remains a valid fallback if LogMiner or the
+archivelog prerequisites cannot be enabled on the source database.
 
 ## Prerequisites
 
-1. An Azure subscription in the same Entra tenant as the Fabric workspace.
-1. Permissions to create resource groups and `Microsoft.Fabric/capacities`.
-1. An active Oracle Database@Azure Marketplace entitlement. This is customer-specific
-   and cannot be inferred or accepted by a deployment script.
-1. A supported Oracle Database@Azure region, Oracle database version, customer contact,
-   and approved client-network CIDR ranges.
-1. Fabric capacity administrator or workspace administrator rights.
+Azure and Fabric:
 
-## Deploy
+- An Azure subscription in the **same Entra tenant** as the Fabric workspace.
+  Fabric rejects a capacity administrator from a different tenant, and a
+  capacity cannot be assigned to a workspace across tenants.
+- Rights to create resource groups and `Microsoft.Fabric/capacities`.
+- Fabric capacity administrator or workspace administrator rights.
+
+Oracle side, required by Mirroring:
+
+- Oracle Database 19c or later (Mirroring supports 10+).
+- `ARCHIVELOG` mode enabled. Changing this requires an instance restart.
+- Database-level and table-level supplemental logging enabled.
+- The database open in read-write mode; LogMiner does not work against a
+  read-only standby.
+- An [on-premises data gateway](https://learn.microsoft.com/fabric/mirroring/oracle-tutorial)
+  reachable from the Oracle host, including for Oracle running on an Azure VM.
+- A dedicated replication account with the documented least-privilege grants.
+  Do not reuse an application or DBA account.
+
+## Deploy the Fabric capacity
 
 ```powershell
 ./deploy-customer.ps1 `
-  -SubscriptionId <subscription-id> `
-  -ResourceGroupName rg-call-analytics `
-  -FabricCapacityName fabriccallanalyticsf2 `
-  -FabricCapacityAdministrator <admin-upn>
+  -SubscriptionId       <subscription-id> `
+  -ResourceGroupName    rg-call-analytics `
+  -FabricCapacityName   fabriccallanalyticsf2 `
+  -FabricCapacityAdmin  <admin-upn>
 ```
 
-The template deploys F2, the smallest paid Fabric SKU that supports Data Agents.
-Pause the capacity outside active demo hours to control spend; resume it before using
-the workspace.
+`F2` is the smallest paid SKU that supports Fabric Data Agents. Two operational
+notes learned the hard way while building this:
 
-After the Oracle Database@Azure entitlement is enabled, deploy the Autonomous
-Database with `deploy-oracle.ps1`. Do not put the database password in source control,
-shell history, or pipeline logs. Use a secure CI/CD secret or Key Vault-backed
-parameter mechanism instead.
+- **F2 Spark capacity is very small.** Lakehouse writes go through Spark and can
+  fail with `TooManyRequestsForCapacity` (HTTP 430) even for trivial inserts.
+  Warehouse writes use T-SQL compute and are unaffected. Mirroring does not
+  consume Spark capacity at all. For a demo, prefer Warehouse or mirrored tables
+  over Spark-authored Lakehouse tables, or size above F2.
+- **A paused capacity takes the Data Agent offline** with "Data agents are
+  temporarily unavailable." Pausing between demos is the right way to control
+  spend, but resume it before a customer session:
 
-Run `oracle-schema.sql` through Oracle SQLcl or an approved database migration tool.
-The table intentionally stores only a PII-safe transcript summary and normalized
-analytics fields. Keep raw audio and unredacted transcripts in a separately governed
-store, if retention is required.
+  ```powershell
+  az resource invoke-action `
+    --action resume `
+    --ids /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Fabric/capacities/<name>
+  ```
 
-## Fabric ingestion
+## Create the Oracle schema
 
-Create a Fabric Data Factory pipeline in the target workspace with:
+Run `oracle-schema.sql` with SQLcl, SQL*Plus, or an approved migration tool, as
+a schema owner rather than `SYS`. The script creates `call_analytics` and enables
+table-level supplemental logging. Database-level prerequisites are listed as
+comments rather than executed, because enabling archivelog restarts the
+instance.
 
-1. An Oracle Database connection using the Autonomous Database mTLS wallet from an
-   approved secret store.
-1. A copy activity from `CALL_ANALYTICS` to a Fabric Warehouse table or Lakehouse
-   Delta table.
-1. Incremental watermarking on `INGESTION_UTC`.
-1. A Data Agent data source scoped only to the curated destination table.
+The schema deliberately uses `VARCHAR2(4000)` rather than `CLOB` for the
+summary: Mirroring does not replicate LOB columns, so a `CLOB` summary would
+silently fail to appear in OneLake.
 
-Fabric connection and pipeline items are tenant/workspace artifacts, not ARM resources.
-They require the customer tenant's Fabric configuration and cannot be safely created
-with a generic ARM template. The connection should use a Fabric connection credential
-or gateway appropriate to the customer network; never embed the wallet or password in
-this repository.
+## Configure Mirroring
+
+Mirrored databases, connections, and gateways are Fabric tenant artifacts rather
+than ARM resources, so they are created in the Fabric portal or through the
+Fabric REST API, not through Bicep:
+
+1. Install and register the on-premises data gateway on a host with network
+   access to the Oracle listener.
+2. In the Fabric workspace, create a **Mirrored Oracle database** item and point
+   it at the gateway connection.
+3. Select only the `call_analytics` table. Mirror the narrow analytics table,
+   not the whole schema.
+4. Wait for the initial snapshot, then confirm the replication status is running
+   and the row count matches the source.
+
+Store the Oracle replication credential in the Fabric connection or Key Vault.
+Never commit it, and never pass it on a command line.
+
+## Point the Data Agent at the mirrored data
+
+1. Add the mirrored database (or a Warehouse view over it) as a Data Agent data
+   source.
+2. **Select the table explicitly.** Attaching a source is not the same as
+   selecting its tables. An attached-but-unselected table produces confident
+   "no data found" answers, which is worse than an error because it looks like a
+   real result.
+3. Add data-source instructions and example queries so routing is deterministic.
+4. Publish. The published version is what other users and Copilot consume; draft
+   changes do not take effect until you republish.
+
+## Verify before demonstrating
+
+```bash
+python ../../data/eval_data_agent.py --source corpus
+```
+
+`data/eval_data_agent.py` computes a SQL baseline for a fixed question set and,
+when pointed at a published agent, asks the same questions repeatedly and scores
+answers for both correctness and run-to-run stability. This is the guard against
+the failure that undermined the earlier executive demo, where the same question
+returned a different competitor count on consecutive runs.
+
+Run it after any change to the data, the schema selection, or the agent
+instructions.
