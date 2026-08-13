@@ -23,7 +23,7 @@ What is reproducible from this folder, and what is not:
 | Oracle source table and Mirroring prerequisites | `oracle-schema.sql` |
 | Semantic model and all KPI measures | `semantic-model/` via `deploy_semantic_model.py` |
 | Data Agent instructions | `data-agent-instructions.txt`, applied by `deploy_data_agent.py` |
-| Data Agent item and source selection | `deploy_data_agent.py`, run in a Fabric notebook |
+| Data Agent item, sources and table selection | `deploy_data_agent.py` (Fabric SDK; runs locally or in a notebook) |
 | Mirrored database and gateway connection | Portal; see [Configure Mirroring](#configure-mirroring) |
 
 ## Why Mirroring rather than a copy pipeline
@@ -274,38 +274,56 @@ can be a script instead of portal clicks.
 the agent, attach both sources, select their tables, apply
 `data-agent-instructions.txt`, and publish.
 
-**Run it in a Fabric notebook** in the target workspace:
+```bash
+uv venv --python 3.12
+.venv/Scripts/python -m ensurepip --upgrade
+.venv/Scripts/python -m pip install fabric-data-agent-sdk azure-identity
 
-```python
-%pip install fabric-data-agent-sdk
-# then run deploy_data_agent.py
+az login
+.venv/Scripts/python deploy_data_agent.py --workspace-id <workspace-guid>
 ```
 
-What was and was not verified while writing this, so the constraints are not a
-surprise:
+It also runs unchanged in a Fabric notebook (`%pip install
+fabric-data-agent-sdk`), where authentication is automatic and `--workspace-id`
+can be omitted.
 
-| Step | Local (laptop) | Fabric notebook |
-| --- | --- | --- |
-| Install SDK | Works on Python 3.10–3.12 only | Works |
-| Authenticate with `az login` | Works | Not needed |
-| `create_data_agent` | **Verified working** | Works |
-| Attach sources, select tables, publish | **Fails** | Works |
+This was verified end to end from a laptop: it created an agent, attached the
+semantic model and the Warehouse, selected `call_analytics` in both, applied the
+instructions, and published.
 
-The local failure is not a bug in this script. Those calls resolve an internal
-workload host through `synapse.ml.fabric.service_discovery`, a module that ships
-only in the Fabric notebook runtime and is not published to PyPI, so they raise
-`ModuleNotFoundError: No module named 'synapse'`. Supplying a substitute host
-does not work either; the endpoint is internal.
+**Use the newer staging API, not the deprecated methods.** The SDK exposes two
+generations of methods and this matters more than it looks:
 
-Two environment issues are worth knowing before trying the local path:
+| Deprecated (internal host) | Current (public endpoint) |
+| --- | --- |
+| `get_datasources()` | `list_datasources()` |
+| `get_configuration()` | `get_staging_settings()` |
+| `update_configuration()` | `patch_staging_settings()` |
+| `publish()` | `publish_staging()` |
+| `add_datasource()` | `add_staging_datasource()` |
 
-- The SDK requires **Python >=3.10,<3.13**. On 3.13 or later `pip` refuses the
-  install, and forcing it tries to build dependencies from source.
-- The SDK pulls in `sempy`, which loads the .NET runtime. On **Windows on ARM**
-  the interpreter is typically x64 while the installed .NET is `win-arm64`, and
+The deprecated methods resolve an internal workload host through
+`synapse.ml.fabric.service_discovery`, a module that ships only in the Fabric
+notebook runtime and is **not** on PyPI. Calling them from anywhere else fails
+with `ModuleNotFoundError: No module named 'synapse'`. Installing the public
+`synapseml` package does not help: it contains 26 submodules and `fabric` is not
+one of them. The staging methods call the public Fabric endpoint and work
+everywhere, which is why this script uses only those.
+
+Three further traps, all hit while writing this script:
+
+- **Python version.** The SDK requires `>=3.10,<3.13`. On 3.13 or later `pip`
+  refuses the install, and forcing it tries to build dependencies from source.
+- **Windows on ARM.** The SDK pulls in `sempy`, which loads .NET. The Python
+  interpreter is typically x64 while the installed .NET is `win-arm64`, and
   loading an ARM64 `hostfxr.dll` into an x64 process fails with `error 0xc1`.
-  Install an x64 runtime and set `DOTNET_ROOT` to it; the script's docstring has
-  the exact commands.
+  Install an x64 runtime and set `DOTNET_ROOT`; the script's docstring has the
+  commands.
+- **Eventual consistency.** Straight after `add_staging_datasource`,
+  `list_datasources` may return fewer sources than were attached, and a listed
+  Warehouse may still report an unexpanded schema tree. A single pass therefore
+  leaves one source with no selected tables and no error. The script retries
+  until every expected source has contributed a selection.
 
 Fabric also supports [Git integration and deployment pipelines for Data
 Agents](https://learn.microsoft.com/fabric/data-science/data-agent-source-control),
