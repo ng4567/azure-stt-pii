@@ -22,8 +22,9 @@ What is reproducible from this folder, and what is not:
 | Resource group and Fabric capacity | `main.bicep` via `deploy-customer.ps1` |
 | Oracle source table and Mirroring prerequisites | `oracle-schema.sql` |
 | Semantic model and all KPI measures | `semantic-model/` via `deploy_semantic_model.py` |
-| Data Agent instructions | `data-agent-instructions.txt`, applied by hand or by SDK |
-| Mirrored database, gateway connection, Data Agent item | Portal or Fabric SDK; see the relevant sections |
+| Data Agent instructions | `data-agent-instructions.txt`, applied by `deploy_data_agent.py` |
+| Data Agent item and source selection | `deploy_data_agent.py`, run in a Fabric notebook |
+| Mirrored database and gateway connection | Portal; see [Configure Mirroring](#configure-mirroring) |
 
 ## Why Mirroring rather than a copy pipeline
 
@@ -267,16 +268,44 @@ every configuration change, including table selection.
 ### Code-first alternative
 
 The [Fabric data agent Python SDK](https://learn.microsoft.com/fabric/data-science/fabric-data-agent-sdk)
-(`fabric-data-agent-sdk` on PyPI) covers the same management-plane operations —
-create the agent, add data sources, set instructions and example queries, and
-publish — so the whole configuration can live in a script instead of portal
-steps. That is the better option for a customer standardising on CI/CD.
+covers the same management-plane operations, so the whole configuration above
+can be a script instead of portal clicks.
+[`deploy_data_agent.py`](deploy_data_agent.py) does exactly that: create or reuse
+the agent, attach both sources, select their tables, apply
+`data-agent-instructions.txt`, and publish.
 
-Two caveats at the time of writing: the SDK is in preview, and it requires
-Python >=3.10,<3.13, so it will not install on 3.13 or later. The reference
-deployment here was built through the portal and the SDK path has not been
-executed against it, so treat the SDK as the documented direction rather than a
-verified script in this repository.
+**Run it in a Fabric notebook** in the target workspace:
+
+```python
+%pip install fabric-data-agent-sdk
+# then run deploy_data_agent.py
+```
+
+What was and was not verified while writing this, so the constraints are not a
+surprise:
+
+| Step | Local (laptop) | Fabric notebook |
+| --- | --- | --- |
+| Install SDK | Works on Python 3.10–3.12 only | Works |
+| Authenticate with `az login` | Works | Not needed |
+| `create_data_agent` | **Verified working** | Works |
+| Attach sources, select tables, publish | **Fails** | Works |
+
+The local failure is not a bug in this script. Those calls resolve an internal
+workload host through `synapse.ml.fabric.service_discovery`, a module that ships
+only in the Fabric notebook runtime and is not published to PyPI, so they raise
+`ModuleNotFoundError: No module named 'synapse'`. Supplying a substitute host
+does not work either; the endpoint is internal.
+
+Two environment issues are worth knowing before trying the local path:
+
+- The SDK requires **Python >=3.10,<3.13**. On 3.13 or later `pip` refuses the
+  install, and forcing it tries to build dependencies from source.
+- The SDK pulls in `sempy`, which loads the .NET runtime. On **Windows on ARM**
+  the interpreter is typically x64 while the installed .NET is `win-arm64`, and
+  loading an ARM64 `hostfxr.dll` into an x64 process fails with `error 0xc1`.
+  Install an x64 runtime and set `DOTNET_ROOT` to it; the script's docstring has
+  the exact commands.
 
 Fabric also supports [Git integration and deployment pipelines for Data
 Agents](https://learn.microsoft.com/fabric/data-science/data-agent-source-control),
