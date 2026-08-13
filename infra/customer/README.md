@@ -15,6 +15,16 @@ Only PII-safe summaries and normalized attributes cross into the analytics
 store. Raw audio and unredacted transcripts stay in whatever governed store
 already holds them.
 
+What is reproducible from this folder, and what is not:
+
+| Component | How it is deployed |
+| --- | --- |
+| Resource group and Fabric capacity | `main.bicep` via `deploy-customer.ps1` |
+| Oracle source table and Mirroring prerequisites | `oracle-schema.sql` |
+| Semantic model and all KPI measures | `semantic-model/` via `deploy_semantic_model.py` |
+| Data Agent instructions | `data-agent-instructions.txt`, applied by hand or by SDK |
+| Mirrored database, gateway connection, Data Agent item | Portal or Fabric SDK; see the relevant sections |
+
 ## Why Mirroring rather than a copy pipeline
 
 [Fabric Mirroring for Oracle](https://learn.microsoft.com/fabric/mirroring/oracle)
@@ -165,19 +175,113 @@ transcripts cannot compute it at all.
 Add the semantic model to the Data Agent as a second data source and route KPI
 questions to it, leaving row-level and ad hoc questions on the Warehouse.
 
-## Point the Data Agent at the mirrored data
+## Build the Data Agent
 
-1. Add the mirrored database (or a Warehouse view over it) as a Data Agent data
-   source.
-2. **Select the table explicitly.** Attaching a source is not the same as
-   selecting its tables, and this applies to semantic models too. An
-   attached-but-unselected table produces confident "no data found" answers,
-   which is worse than an error because it looks like a real result. If the
-   agent reports no data for a metric you can query directly, check the
-   checkbox next to the table before changing anything else.
-3. Add data-source instructions and example queries so routing is deterministic.
-4. Publish. The published version is what other users and Copilot consume; draft
-   changes do not take effect until you republish.
+This is the step that turns the governed data into a question-and-answer
+experience. Unlike the capacity and the semantic model, the Data Agent's
+configuration is not committed to this repository, so the exact build is
+recorded here. The reference deployment was built through the portal; the
+code-first alternative is described at the end of this section.
+
+### 1. Create the agent
+
+In the workspace, choose **New item → Data agent** and name it, for example
+`Charter Call Analytics Agent`. The item is created immediately and starts as an
+unpublished draft.
+
+If creation fails with *"An admin needs to change the SKU type for your
+organization's Fabric capacity"*, the workspace is on a capacity that does not
+support Data Agents. A Fabric trial capacity does not; F2 and above do. Assign
+the workspace to the F2 capacity deployed earlier and retry.
+
+### 2. Attach the data sources
+
+Use **Add data → Data source** and attach both:
+
+| Source | Purpose |
+| --- | --- |
+| `Charter Call Analytics Model` (semantic model) | Governed KPIs. NL2DAX resolves questions to the published measures. |
+| `charter_call_warehouse` (Warehouse) | Row-level detail and ad hoc breakdowns that no measure covers. |
+
+Attach the mirrored Oracle database instead of, or in addition to, the Warehouse
+once Mirroring is configured; the agent treats a mirrored database as another
+SQL source.
+
+### 3. Select the tables — the step that is easy to miss
+
+Expand each attached source and **tick the checkbox next to every table the
+agent may query**. Attaching a source does not select its tables.
+
+This is worth calling out because of how it fails. An attached-but-unselected
+table does not raise an error. The agent answers:
+
+> *"No data was found for competitor mentions, cancellations, or escalations
+> across the available calls."*
+
+That is a confident, well-formed, completely wrong answer, and in a live demo it
+reads as "the data isn't there" rather than "the agent is misconfigured". It
+happened twice while building this reference deployment: once on the Warehouse
+and again on the semantic model, whose node is collapsed and unselected by
+default after you attach it.
+
+If the agent reports no data for something you can query directly in SQL or DAX,
+check the table selection before changing anything else.
+
+### 4. Write the agent instructions
+
+Instructions are the routing layer. With two sources attached, the agent needs to
+be told which one is authoritative for what. The exact text used by the reference
+deployment is committed as
+[`data-agent-instructions.txt`](data-agent-instructions.txt) — paste it into the
+**Agent instructions** pane, or feed it to the SDK. Keeping it in the repository
+means the routing rules are reviewable and diffable even though the agent item
+itself is not.
+
+It covers three things:
+
+- **Routing.** The semantic model is authoritative for every business metric,
+  rate, KPI, or ratio, and the measures are listed by name so the agent prefers
+  them over recomputing arithmetic. The Warehouse handles row-level detail. The
+  empty Lakehouse is explicitly excluded.
+- **Definitions.** Terms whose meaning must not drift: `competitor` is a
+  normalized name; `competitor_mentions` counts every mention, so it is always
+  greater than or equal to the number of calls mentioning that competitor;
+  save rate and revenue at risk are defined explicitly.
+- **Rules.** Counts and rates come from aggregation or a governed measure and are
+  never inferred by reading summary text. Applied filters and time periods are
+  stated. Only PII-safe content is returned.
+
+The listed measure names matter. Without them the agent tends to write its own
+DAX or SQL for a metric that already has a governed definition, which is the
+behaviour the semantic model exists to prevent.
+
+The instructions pane renders markdown when it is not focused; click into the
+text to edit it.
+
+### 5. Publish
+
+Publishing is what other users, Microsoft 365 Copilot, and the MCP endpoint
+consume. Draft edits have no effect until you publish again, so republish after
+every configuration change, including table selection.
+
+### Code-first alternative
+
+The [Fabric data agent Python SDK](https://learn.microsoft.com/fabric/data-science/fabric-data-agent-sdk)
+(`fabric-data-agent-sdk` on PyPI) covers the same management-plane operations —
+create the agent, add data sources, set instructions and example queries, and
+publish — so the whole configuration can live in a script instead of portal
+steps. That is the better option for a customer standardising on CI/CD.
+
+Two caveats at the time of writing: the SDK is in preview, and it requires
+Python >=3.10,<3.13, so it will not install on 3.13 or later. The reference
+deployment here was built through the portal and the SDK path has not been
+executed against it, so treat the SDK as the documented direction rather than a
+verified script in this repository.
+
+Fabric also supports [Git integration and deployment pipelines for Data
+Agents](https://learn.microsoft.com/fabric/data-science/data-agent-source-control),
+which is the supported way to version an agent's configuration and promote it
+from development to production.
 
 ## Verify before demonstrating
 
@@ -191,5 +295,16 @@ answers for both correctness and run-to-run stability. This is the guard against
 the failure that undermined the earlier executive demo, where the same question
 returned a different competitor count on consecutive runs.
 
-Run it after any change to the data, the schema selection, or the agent
+Run it after any change to the data, the table selection, or the agent
 instructions.
+
+For reference, the published agent answered these correctly against the
+100-record corpus, with every figure matching the SQL and DAX baselines:
+
+| Question | Answer |
+| --- | --- |
+| How many calls are in the table? | 3 calls (at the time; 100 after the full corpus load) |
+| Competitor mentions by competitor, plus cancellation and escalation counts | Verizon 3 mentions / 1 escalation, AT&T 2 mentions / 1 cancellation |
+| What is our save rate, and how much monthly revenue is at risk? | Save Rate 70.0%, Monthly Revenue at Risk $1,735 |
+| Most-mentioned competitor, competitive pressure rate, annual revenue at risk | Four competitors tied at 33 mentions, 84.0%, $20,820 |
+
