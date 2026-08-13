@@ -109,6 +109,29 @@ QUESTIONS: tuple[Question, ...] = (
         note="Churn-risk intersection; the metric an executive actually acts on.",
     ),
     Question(
+        id="save-rate",
+        prompt=(
+            "Of the calls flagged for cancellation, what percentage ended with the "
+            "customer retained?"
+        ),
+        baseline_sql=(
+            "SELECT CAST(100.0 * SUM(CASE WHEN disposition = 'retained' THEN 1 ELSE 0 END) "
+            "/ COUNT(*) AS DECIMAL(5,2)) AS save_rate_pct "
+            "FROM dbo.call_analytics WHERE cancellation_flag = 1;"
+        ),
+        local=lambda rows: round(
+            100.0
+            * sum(
+                1
+                for row in rows
+                if row.get("cancellation_flag") and row.get("disposition") == "retained"
+            )
+            / sum(1 for row in rows if row.get("cancellation_flag")),
+            2,
+        ),
+        note="Must agree with the Save Rate measure in the semantic model.",
+    ),
+    Question(
         id="revenue-at-risk",
         prompt=(
             "What is the total monthly recurring revenue on calls that mentioned a "

@@ -14,6 +14,13 @@
     "T-Mobile": 31,
     "Verizon": 33
   },
+  "dispositions": {
+    "cancelled": 6,
+    "completed_order": 20,
+    "escalated": 20,
+    "resolved": 40,
+    "retained": 14
+  },
   "escalations": 20,
   "monthly_revenue_on_competitor_cancellation_calls_usd": 1735,
   "queues": {
@@ -28,5 +35,6 @@
     "east": 34,
     "west": 33
   },
-  "repeat_contacts": 15
+  "repeat_contacts": 15,
+  "saved_cancellations": 14
 }

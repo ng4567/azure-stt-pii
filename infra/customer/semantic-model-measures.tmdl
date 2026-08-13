@@ -1,0 +1,91 @@
+// Governed measures for the Charter call-analytics semantic model.
+//
+// This file is the source of truth for the KPI definitions. Everything from the
+// first `measure` keyword onward is appended to the `call_analytics` table in
+// the Direct Lake semantic model by `apply_semantic_model_measures.py`.
+//
+// Why these live in a semantic model rather than in the agent's prompt: a
+// measure has exactly one definition. Two executives asking "what is our save
+// rate" through different tools get the same number, and the number does not
+// change when someone edits an instruction. Prompt-defined arithmetic gives up
+// both properties, which is how a demo loses credibility after the first
+// follow-up question.
+//
+// TMDL notes: descriptions are `///` comments placed above the object, not a
+// `description:` property. DIVIDE() is used rather than the `/` operator so an
+// empty filter context returns BLANK instead of raising a division error.
+
+	/// Number of calls in the current filter context.
+	measure 'Total Calls' = COUNTROWS('call_analytics')
+		formatString: #,0
+		displayFolder: Volume
+
+	/// Total normalized competitor mentions. Spelling variants are resolved upstream, so this is a deterministic count rather than a text search.
+	measure 'Competitor Mentions' = SUM('call_analytics'[competitor_mentions])
+		formatString: #,0
+		displayFolder: Competitive
+
+	/// Calls where at least one competitor was named. Distinct from Competitor Mentions, which counts every mention.
+	measure 'Calls Mentioning Competitor' = CALCULATE(COUNTROWS('call_analytics'), NOT ISBLANK('call_analytics'[competitor]))
+		formatString: #,0
+		displayFolder: Competitive
+
+	/// Share of calls in which a competitor was named.
+	measure 'Competitive Pressure Rate' = DIVIDE([Calls Mentioning Competitor], [Total Calls])
+		formatString: 0.0%
+		displayFolder: Competitive
+
+	/// Calls flagged as a cancellation request.
+	measure 'Cancellation Calls' = CALCULATE(COUNTROWS('call_analytics'), 'call_analytics'[cancellation_flag] = TRUE())
+		formatString: #,0
+		displayFolder: Churn
+
+	/// Share of cancellation calls that ended with the customer retained. The primary retention KPI.
+	measure 'Save Rate' = DIVIDE(CALCULATE(COUNTROWS('call_analytics'), 'call_analytics'[cancellation_flag] = TRUE(), 'call_analytics'[disposition] = "retained"), [Cancellation Calls])
+		formatString: 0.0%
+		displayFolder: Churn
+
+	/// Calls that both named a competitor and requested cancellation.
+	measure 'At-Risk Calls' = CALCULATE(COUNTROWS('call_analytics'), NOT ISBLANK('call_analytics'[competitor]), 'call_analytics'[cancellation_flag] = TRUE())
+		formatString: #,0
+		displayFolder: Churn
+
+	/// Recurring monthly revenue on calls that named a competitor and requested cancellation. Requires transcript signals joined to billing data, which is why this analysis belongs in OneLake rather than in a transcript-only tool.
+	measure 'Monthly Revenue at Risk' = CALCULATE(SUM('call_analytics'[monthly_revenue_usd]), NOT ISBLANK('call_analytics'[competitor]), 'call_analytics'[cancellation_flag] = TRUE())
+		formatString: "$"#,0
+		displayFolder: Churn
+
+	/// Monthly Revenue at Risk annualized. Use for executive framing; it assumes the at-risk cohort would churn for a full year.
+	measure 'Annual Revenue at Risk' = [Monthly Revenue at Risk] * 12
+		formatString: "$"#,0
+		displayFolder: Churn
+
+	/// Calls escalated beyond the first-line representative.
+	measure 'Escalation Calls' = CALCULATE(COUNTROWS('call_analytics'), 'call_analytics'[escalation_flag] = TRUE())
+		formatString: #,0
+		displayFolder: Service Quality
+
+	/// Share of calls that required escalation.
+	measure 'Escalation Rate' = DIVIDE([Escalation Calls], [Total Calls])
+		formatString: 0.0%
+		displayFolder: Service Quality
+
+	/// Calls from a customer who had already contacted support about the same issue.
+	measure 'Repeat Contact Calls' = CALCULATE(COUNTROWS('call_analytics'), 'call_analytics'[repeat_contact_flag] = TRUE())
+		formatString: #,0
+		displayFolder: Service Quality
+
+	/// Share of calls not followed by a repeat contact. Defined as the complement of the repeat-contact rate so FCR and repeat contact can never disagree.
+	measure 'First Contact Resolution Rate' = 1 - DIVIDE([Repeat Contact Calls], [Total Calls])
+		formatString: 0.0%
+		displayFolder: Service Quality
+
+	/// Mean handle time in seconds.
+	measure 'Avg Handle Time (sec)' = AVERAGE('call_analytics'[handle_time_seconds])
+		formatString: #,0
+		displayFolder: Cost
+
+	/// Total agent hours consumed, the basis for cost-per-call analysis.
+	measure 'Total Handle Hours' = DIVIDE(SUM('call_analytics'[handle_time_seconds]), 3600)
+		formatString: #,0.0
+		displayFolder: Cost

@@ -85,6 +85,13 @@ def build_records(count: int) -> list[dict[str, Any]]:
         queue, intent, disposition, sentiment, cancellation, escalation = SCENARIOS[
             index % len(SCENARIOS)
         ]
+        # Let some cancellation attempts actually churn. If every retention call
+        # ended "retained" the save rate would be a flat 100%, which is the kind
+        # of number that makes a contact-centre audience stop believing the rest
+        # of the demo. Cycling 7 of every 10 gives a defensible ~70%.
+        if cancellation and (index // len(SCENARIOS)) % 10 >= 7:
+            disposition = "cancelled"
+            sentiment = "negative"
         competitor = COMPETITORS[index % len(COMPETITORS)]
         mentions = 0 if competitor is None else _mention_count(index)
         call_id = f"synthetic-call-{index + 1:03d}"
@@ -137,6 +144,7 @@ def _summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
         "record_count": len(records),
         "queues": dict(sorted(Counter(r["queue_name"] for r in records).items())),
         "regions": dict(sorted(Counter(r["region"] for r in records).items())),
+        "dispositions": dict(sorted(Counter(r["disposition"] for r in records).items())),
         "competitor_calls": dict(
             sorted(Counter(r["competitor"] for r in records if r["competitor"]).items())
         ),
@@ -147,6 +155,9 @@ def _summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
             for competitor in sorted(competitors)
         },
         "cancellations": sum(1 for r in records if r["cancellation_flag"]),
+        "saved_cancellations": sum(
+            1 for r in records if r["cancellation_flag"] and r["disposition"] == "retained"
+        ),
         "escalations": sum(1 for r in records if r["escalation_flag"]),
         "repeat_contacts": sum(1 for r in records if r["repeat_contact_flag"]),
         "monthly_revenue_on_competitor_cancellation_calls_usd": sum(

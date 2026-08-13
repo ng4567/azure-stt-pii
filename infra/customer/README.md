@@ -115,14 +115,55 @@ Fabric REST API, not through Bicep:
 Store the Oracle replication credential in the Fabric connection or Key Vault.
 Never commit it, and never pass it on a command line.
 
+## Add the governed semantic model
+
+The Data Agent can compute a rate by writing its own SQL, but nothing guarantees
+it writes the same SQL twice, and nothing stops two teams defining "save rate"
+differently. A semantic model fixes both: each KPI has one definition that every
+consumer shares.
+
+Create a Direct Lake semantic model over the Warehouse (**New semantic model**
+in the Warehouse ribbon, select `call_analytics`), then apply the measures:
+
+```bash
+python apply_semantic_model_measures.py \
+  --workspace-id <workspace-guid> \
+  --semantic-model-id <semantic-model-guid>
+```
+
+`semantic-model-measures.tmdl` is the source of truth for the definitions and is
+meant to be reviewed like code. The script is idempotent: re-running it replaces
+the existing measures rather than duplicating them, so editing the TMDL and
+re-applying is the normal workflow.
+
+The measures cover four areas:
+
+| Folder | Measures |
+| --- | --- |
+| Volume | Total Calls |
+| Competitive | Competitor Mentions, Calls Mentioning Competitor, Competitive Pressure Rate |
+| Churn | Cancellation Calls, Save Rate, At-Risk Calls, Monthly Revenue at Risk, Annual Revenue at Risk |
+| Service Quality | Escalation Calls, Escalation Rate, Repeat Contact Calls, First Contact Resolution Rate |
+| Cost | Avg Handle Time (sec), Total Handle Hours |
+
+`Monthly Revenue at Risk` is the one worth demonstrating first. It is recurring
+revenue on calls that both named a competitor and requested cancellation, which
+requires transcript signals joined to billing data. A tool that only sees
+transcripts cannot compute it at all.
+
+Add the semantic model to the Data Agent as a second data source and route KPI
+questions to it, leaving row-level and ad hoc questions on the Warehouse.
+
 ## Point the Data Agent at the mirrored data
 
 1. Add the mirrored database (or a Warehouse view over it) as a Data Agent data
    source.
 2. **Select the table explicitly.** Attaching a source is not the same as
-   selecting its tables. An attached-but-unselected table produces confident
-   "no data found" answers, which is worse than an error because it looks like a
-   real result.
+   selecting its tables, and this applies to semantic models too. An
+   attached-but-unselected table produces confident "no data found" answers,
+   which is worse than an error because it looks like a real result. If the
+   agent reports no data for a metric you can query directly, check the
+   checkbox next to the table before changing anything else.
 3. Add data-source instructions and example queries so routing is deterministic.
 4. Publish. The published version is what other users and Copilot consume; draft
    changes do not take effect until you republish.
