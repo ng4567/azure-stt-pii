@@ -1,0 +1,269 @@
+table call_analytics
+	lineageTag: 2b0284cc-71d9-4798-bcf4-b2b7a0fbc2d7
+	sourceLineageTag: [dbo].[call_analytics]
+
+	/// Number of calls in the current filter context.
+	measure 'Total Calls' = COUNTROWS('call_analytics')
+		formatString: #,0
+		displayFolder: Volume
+
+	/// Total normalized competitor mentions. Spelling variants are resolved upstream, so this is a deterministic count rather than a text search.
+	measure 'Competitor Mentions' = SUM('call_analytics'[competitor_mentions])
+		formatString: #,0
+		displayFolder: Competitive
+
+	/// Calls where at least one competitor was named. Distinct from Competitor Mentions, which counts every mention.
+	measure 'Calls Mentioning Competitor' = CALCULATE(COUNTROWS('call_analytics'), NOT ISBLANK('call_analytics'[competitor]))
+		formatString: #,0
+		displayFolder: Competitive
+
+	/// Share of calls in which a competitor was named.
+	measure 'Competitive Pressure Rate' = DIVIDE([Calls Mentioning Competitor], [Total Calls])
+		formatString: 0.0%
+		displayFolder: Competitive
+
+	/// Calls flagged as a cancellation request.
+	measure 'Cancellation Calls' = CALCULATE(COUNTROWS('call_analytics'), 'call_analytics'[cancellation_flag] = TRUE())
+		formatString: #,0
+		displayFolder: Churn
+
+	/// Share of cancellation calls that ended with the customer retained. The primary retention KPI.
+	measure 'Save Rate' = DIVIDE(CALCULATE(COUNTROWS('call_analytics'), 'call_analytics'[cancellation_flag] = TRUE(), 'call_analytics'[disposition] = "retained"), [Cancellation Calls])
+		formatString: 0.0%
+		displayFolder: Churn
+
+	/// Calls that both named a competitor and requested cancellation.
+	measure 'At-Risk Calls' = CALCULATE(COUNTROWS('call_analytics'), NOT ISBLANK('call_analytics'[competitor]), 'call_analytics'[cancellation_flag] = TRUE())
+		formatString: #,0
+		displayFolder: Churn
+
+	/// Recurring monthly revenue on calls that named a competitor and requested cancellation. Requires transcript signals joined to billing data, which is why this analysis belongs in OneLake rather than in a transcript-only tool.
+	measure 'Monthly Revenue at Risk' = CALCULATE(SUM('call_analytics'[monthly_revenue_usd]), NOT ISBLANK('call_analytics'[competitor]), 'call_analytics'[cancellation_flag] = TRUE())
+		formatString: "$"#,0
+		displayFolder: Churn
+
+	/// Monthly Revenue at Risk annualized. Use for executive framing; it assumes the at-risk cohort would churn for a full year.
+	measure 'Annual Revenue at Risk' = [Monthly Revenue at Risk] * 12
+		formatString: "$"#,0
+		displayFolder: Churn
+
+	/// Calls escalated beyond the first-line representative.
+	measure 'Escalation Calls' = CALCULATE(COUNTROWS('call_analytics'), 'call_analytics'[escalation_flag] = TRUE())
+		formatString: #,0
+		displayFolder: Service Quality
+
+	/// Share of calls that required escalation.
+	measure 'Escalation Rate' = DIVIDE([Escalation Calls], [Total Calls])
+		formatString: 0.0%
+		displayFolder: Service Quality
+
+	/// Calls from a customer who had already contacted support about the same issue.
+	measure 'Repeat Contact Calls' = CALCULATE(COUNTROWS('call_analytics'), 'call_analytics'[repeat_contact_flag] = TRUE())
+		formatString: #,0
+		displayFolder: Service Quality
+
+	/// Share of calls not followed by a repeat contact. Defined as the complement of the repeat-contact rate so FCR and repeat contact can never disagree.
+	measure 'First Contact Resolution Rate' = 1 - DIVIDE([Repeat Contact Calls], [Total Calls])
+		formatString: 0.0%
+		displayFolder: Service Quality
+
+	/// Mean handle time in seconds.
+	measure 'Avg Handle Time (sec)' = AVERAGE('call_analytics'[handle_time_seconds])
+		formatString: #,0
+		displayFolder: Cost
+
+	/// Total agent hours consumed, the basis for cost-per-call analysis.
+	measure 'Total Handle Hours' = DIVIDE(SUM('call_analytics'[handle_time_seconds]), 3600)
+		formatString: #,0.0
+		displayFolder: Cost
+
+	column call_id
+		dataType: string
+		sourceProviderType: varchar(100)
+		lineageTag: 1674dbb1-c929-4282-a7a1-0b567a464e90
+		sourceLineageTag: call_id
+		summarizeBy: none
+		sourceColumn: call_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column call_start_utc
+		dataType: dateTime
+		formatString: General Date
+		sourceProviderType: datetime2
+		lineageTag: 1c6cf15c-48e3-4715-933f-3caf6403c08d
+		sourceLineageTag: call_start_utc
+		summarizeBy: none
+		sourceColumn: call_start_utc
+
+		annotation SummarizationSetBy = Automatic
+
+	column queue_name
+		dataType: string
+		sourceProviderType: varchar(100)
+		lineageTag: 21e41840-2fa2-449a-8b1e-01102866d154
+		sourceLineageTag: queue_name
+		summarizeBy: none
+		sourceColumn: queue_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column region
+		dataType: string
+		sourceProviderType: varchar(50)
+		lineageTag: 8109cfba-9554-4108-bc68-267c460962b2
+		sourceLineageTag: region
+		summarizeBy: none
+		sourceColumn: region
+
+		annotation SummarizationSetBy = Automatic
+
+	column customer_intent
+		dataType: string
+		sourceProviderType: varchar(100)
+		lineageTag: c6cd3103-627e-4099-946c-22cb093e9fb4
+		sourceLineageTag: customer_intent
+		summarizeBy: none
+		sourceColumn: customer_intent
+
+		annotation SummarizationSetBy = Automatic
+
+	column disposition
+		dataType: string
+		sourceProviderType: varchar(100)
+		lineageTag: 5d2565f8-3626-43d6-bb14-58b93645ef70
+		sourceLineageTag: disposition
+		summarizeBy: none
+		sourceColumn: disposition
+
+		annotation SummarizationSetBy = Automatic
+
+	column pii_safe_summary
+		dataType: string
+		sourceProviderType: varchar(4000)
+		lineageTag: ad9eef90-32d3-4816-aefc-05204779f076
+		sourceLineageTag: pii_safe_summary
+		summarizeBy: none
+		sourceColumn: pii_safe_summary
+
+		annotation SummarizationSetBy = Automatic
+
+	column sentiment
+		dataType: string
+		sourceProviderType: varchar(50)
+		lineageTag: 15986bb5-739d-40c1-ba97-ed29742a572e
+		sourceLineageTag: sentiment
+		summarizeBy: none
+		sourceColumn: sentiment
+
+		annotation SummarizationSetBy = Automatic
+
+	column escalation_flag
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		sourceProviderType: bit
+		lineageTag: 555aad6f-63ba-4fe9-b7a5-c588bf9e498a
+		sourceLineageTag: escalation_flag
+		summarizeBy: none
+		sourceColumn: escalation_flag
+
+		annotation SummarizationSetBy = Automatic
+
+	column cancellation_flag
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		sourceProviderType: bit
+		lineageTag: 02397b77-70cc-45d4-a0f4-f3dbabe968ef
+		sourceLineageTag: cancellation_flag
+		summarizeBy: none
+		sourceColumn: cancellation_flag
+
+		annotation SummarizationSetBy = Automatic
+
+	column competitor
+		dataType: string
+		sourceProviderType: varchar(100)
+		lineageTag: 1e408f75-67a6-4e38-bf9d-81df99bbde95
+		sourceLineageTag: competitor
+		summarizeBy: none
+		sourceColumn: competitor
+
+		annotation SummarizationSetBy = Automatic
+
+	column competitor_mentions
+		dataType: int64
+		formatString: 0
+		sourceProviderType: int
+		lineageTag: bfe0b486-1f2b-4c59-b89c-9203b66c343e
+		sourceLineageTag: competitor_mentions
+		summarizeBy: sum
+		sourceColumn: competitor_mentions
+
+		annotation SummarizationSetBy = Automatic
+
+	column handle_time_seconds
+		dataType: int64
+		formatString: 0
+		sourceProviderType: int
+		lineageTag: 8de0d32e-b4d4-4178-919a-2a1aff785381
+		sourceLineageTag: handle_time_seconds
+		summarizeBy: sum
+		sourceColumn: handle_time_seconds
+
+		annotation SummarizationSetBy = Automatic
+
+	column repeat_contact_flag
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		sourceProviderType: bit
+		lineageTag: 45201704-ebb5-4f4e-80eb-da0cdbdc0c4a
+		sourceLineageTag: repeat_contact_flag
+		summarizeBy: none
+		sourceColumn: repeat_contact_flag
+
+		annotation SummarizationSetBy = Automatic
+
+	column account_tenure_months
+		dataType: int64
+		formatString: 0
+		sourceProviderType: int
+		lineageTag: 210e0726-7215-426b-b6ed-a10e5935070d
+		sourceLineageTag: account_tenure_months
+		summarizeBy: sum
+		sourceColumn: account_tenure_months
+
+		annotation SummarizationSetBy = Automatic
+
+	column monthly_revenue_usd
+		dataType: decimal
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		sourceProviderType: decimal(12, 2)
+		lineageTag: c507b269-d7ac-44d7-afde-8e643483e350
+		sourceLineageTag: monthly_revenue_usd
+		summarizeBy: sum
+		sourceColumn: monthly_revenue_usd
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"currencyCulture":"en-US"}
+
+	column ingestion_utc
+		dataType: dateTime
+		formatString: General Date
+		sourceProviderType: datetime2
+		lineageTag: 1e0f6459-02f7-4b90-ad86-34abae3c9f9c
+		sourceLineageTag: ingestion_utc
+		summarizeBy: none
+		sourceColumn: ingestion_utc
+
+		annotation SummarizationSetBy = Automatic
+
+	partition call_analytics = entity
+		mode: directLake
+		source
+			entityName: call_analytics
+			schemaName: dbo
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table
+

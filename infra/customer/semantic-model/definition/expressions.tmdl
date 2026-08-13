@@ -1,0 +1,8 @@
+expression DatabaseQuery =
+		let
+		    database = Sql.Database("${WAREHOUSE_SQL_ENDPOINT}", "${WAREHOUSE_ID}")
+		in
+		    database
+	lineageTag: 3418f00a-dda6-47ca-becb-c344d1354347
+
+	annotation PBI_IncludeFutureArtifacts = False

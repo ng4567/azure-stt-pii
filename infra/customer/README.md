@@ -115,28 +115,39 @@ Fabric REST API, not through Bicep:
 Store the Oracle replication credential in the Fabric connection or Key Vault.
 Never commit it, and never pass it on a command line.
 
-## Add the governed semantic model
+## Deploy the governed semantic model
 
 The Data Agent can compute a rate by writing its own SQL, but nothing guarantees
 it writes the same SQL twice, and nothing stops two teams defining "save rate"
 differently. A semantic model fixes both: each KPI has one definition that every
 consumer shares.
 
-Create a Direct Lake semantic model over the Warehouse (**New semantic model**
-in the Warehouse ribbon, select `call_analytics`), then apply the measures:
+The entire model lives in source control under `semantic-model/` as TMDL, in the
+same layout Fabric Git integration produces. Nothing here requires a portal
+step:
 
 ```bash
-python apply_semantic_model_measures.py \
+python deploy_semantic_model.py \
   --workspace-id <workspace-guid> \
-  --semantic-model-id <semantic-model-guid>
+  --warehouse-name charter_call_warehouse
+
+# preview without writing
+python deploy_semantic_model.py --workspace-id <guid> --what-if
 ```
 
-`semantic-model-measures.tmdl` is the source of truth for the definitions and is
-meant to be reviewed like code. The script is idempotent: re-running it replaces
-the existing measures rather than duplicating them, so editing the TMDL and
-re-applying is the normal workflow.
+The script creates the model if it is absent and updates it in place if it
+exists, so the same command serves first deployment and every later change. The
+Direct Lake source is environment-specific, so `definition/expressions.tmdl`
+carries `${WAREHOUSE_SQL_ENDPOINT}` and `${WAREHOUSE_ID}` placeholders that are
+resolved from the workspace at deploy time; the script fails rather than
+deploying if any placeholder is left unsubstituted.
 
-The measures cover four areas:
+Because the folder matches Fabric's Git format, a customer who prefers portal
+workflows can instead connect the workspace to a repository and sync the same
+files.
+
+Measures are defined in `semantic-model/definition/tables/call_analytics.tmdl`
+and are meant to be reviewed like code:
 
 | Folder | Measures |
 | --- | --- |
