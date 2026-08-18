@@ -70,7 +70,7 @@ export function collectSources(
       id: job.id,
       label: isBuiltinUpload
         ? `Built-in sample call · re-run ${job.id.slice(0, 6)}`
-        : `Your call — ${uploadName(upload, job)}`,
+        : `Test call — ${uploadName(upload, job)}`,
       detail: describe(job.result),
       builtin: isBuiltinUpload,
       uploadId: job.upload_id,
@@ -120,7 +120,7 @@ export function renderSourceBar(
         </select>
       </label>
       <button type="button" id="source-upload" class="primary-ghost">
-        ${hasOwn ? "Run another call" : "Use your own call"}
+        ${hasOwn ? "Run another test call" : "Attach an approved test call"}
       </button>
     </div>`;
 
@@ -136,37 +136,20 @@ export function renderSourceBar(
 export function renderSourceNotice(
   host: HTMLElement,
   source: CallSource | undefined,
-  onUploadRequest: () => void,
 ): void {
-  if (!source) {
+  if (!source || source.builtin) {
     host.replaceChildren();
     return;
   }
 
   const notice = document.createElement("aside");
-  if (source.builtin) {
-    notice.className = "notice notice--sample";
-    notice.innerHTML = `
-      <h2>These figures are the built-in sample call</h2>
-      <p>
-        Every number below is measured from one synthesized ${escapeHtml(
-          formatDuration(source.report.audio_seconds),
-        )} call shipped with this repository. It is a fair like-for-like comparison
-        between the two stacks, but it is not your customer's audio.
-        <strong>Upload one of their recordings to price the migration on real calls.</strong>
-      </p>`;
-  } else {
-    notice.className = "notice notice--own";
-    notice.innerHTML = `
-      <h2>Priced on your own call</h2>
-      <p>
-        Every number below is measured from <strong>${escapeHtml(source.label.replace(/^Your call — /, ""))}</strong>
-        — ${escapeHtml(source.detail)}. Switch back to the built-in sample any time
-        from the recording picker above.
-      </p>`;
-  }
-  notice
-    .querySelector("button")
-    ?.addEventListener("click", () => onUploadRequest());
+  notice.className = "notice notice--own";
+  notice.innerHTML = `
+    <h2>Using the selected test recording</h2>
+    <p>
+      Every number below is measured from <strong>${escapeHtml(source.label.replace(/^Test call — /, ""))}</strong>
+      — ${escapeHtml(source.detail)}. Switch back to the built-in sample any time
+      from the recording picker above.
+    </p>`;
   host.replaceChildren(notice);
 }

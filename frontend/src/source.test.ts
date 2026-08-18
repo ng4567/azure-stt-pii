@@ -2,7 +2,12 @@ import { beforeAll, expect, test } from "bun:test";
 import { Window } from "happy-dom";
 
 import type { BenchmarkReport, Job, UploadMeta } from "./api.ts";
-import { BUILTIN_SOURCE_ID, collectSources, renderSourceBar } from "./source.ts";
+import {
+  BUILTIN_SOURCE_ID,
+  collectSources,
+  renderSourceBar,
+  renderSourceNotice,
+} from "./source.ts";
 
 /** happy-dom's Event class, which its own dispatchEvent insists on. */
 let DomEvent: typeof Event;
@@ -63,6 +68,13 @@ test("the built-in call is offered first, and alone until a run completes", () =
   expect(sources[0]!.builtin).toBe(true);
 });
 
+test("the built-in source does not render a sample-call notice", () => {
+  const host = document.createElement("div");
+  const source = collectSources(report(504), [], [])[0];
+  renderSourceNotice(host, source);
+  expect(host.childElementCount).toBe(0);
+});
+
 test("a completed run of an uploaded call becomes a selectable source", () => {
   const sources = collectSources(report(504), [job({})], [upload({})]);
   expect(sources.map((source) => source.id)).toEqual([BUILTIN_SOURCE_ID, "job1"]);
@@ -116,7 +128,9 @@ test("the picker is disabled while the built-in call is the only recording", () 
     onUploadRequest: () => {},
   });
   expect(host.querySelector("select")?.hasAttribute("disabled")).toBe(true);
-  expect(host.querySelector("#source-upload")?.textContent?.trim()).toBe("Use your own call");
+  expect(host.querySelector("#source-upload")?.textContent?.trim()).toBe(
+    "Attach an approved test call",
+  );
 });
 
 test("selecting a different recording reports the choice", () => {
@@ -133,5 +147,7 @@ test("selecting a different recording reports the choice", () => {
   select.value = "job1";
   select.dispatchEvent(new DomEvent("change", { bubbles: true }));
   expect(chosen).toEqual(["job1"]);
-  expect(host.querySelector("#source-upload")?.textContent?.trim()).toBe("Run another call");
+  expect(host.querySelector("#source-upload")?.textContent?.trim()).toBe(
+    "Run another test call",
+  );
 });

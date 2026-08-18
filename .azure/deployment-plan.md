@@ -27,7 +27,7 @@ The backend already exposes `/api/health`, uses asynchronous/pollable jobs, and 
 | Azure Container Registry | `acrsttpiifd9180` | New Basic registry; globally available name confirmed |
 | Container Apps environment | `cae-stt-pii-poc` | New, consumption workload profile |
 | Backend app | `ca-stt-pii-api` | Internal ingress; min 1/max 1 replica to preserve in-memory jobs |
-| Frontend app | `ca-stt-pii-web` | External ingress; min 0/max 1 replica |
+| Frontend app | `ca-stt-pii-web` | External ingress; min 1/max 1 replica |
 | Speech/Voice Live | `<speech-resource>` | Existing resource in `<resource-group>`; unchanged |
 | Azure Language + DeepSeek | `finance-app-resource` | Existing resource in `finance-app-ng`; unchanged |
 
@@ -67,6 +67,38 @@ No existing resources will be deleted or replaced. Existing `infra/` remains unt
 
 Validated on 2026-08-06 against subscription `fd918039-a89e-49a7-8e32-af614b3765f9`.
 
+Frontend-only update revalidated on 2026-08-18 at `2026-08-18T17:55:31Z`:
+
+- Existing `rg-stt-pii-aca`, `cae-stt-pii-poc`, `ca-stt-pii-web`, and `acrsttpiifd9180` provisioning states - PASS.
+- Existing deployment location - PASS (`East US`).
+- Frontend production build - PASS.
+- Frontend type checking - PASS.
+- Frontend tests - PASS (`45 passed`).
+- `docker build -f frontend/Dockerfile .` - PASS, image `sha256:95073b2e85b28307da22af234568a91992f50bf8c95cc5e8027fc658180ead5b`.
+- Frontend managed identity `AcrPull` at the registry scope - PASS.
+- Subscription policy assignment review - PASS; no assignment blocks the existing Container Apps update.
+- `bash -n .azure/deploy-aca.sh` and `git diff --check` - PASS.
+
+Frontend copy update revalidated on 2026-08-18 at `2026-08-18T18:03:17Z`:
+
+- Frontend production build and type checking - PASS.
+- Frontend tests - PASS (`46 passed`).
+- Prohibited customer-upload wording scan - PASS.
+- `docker build -f frontend/Dockerfile .` - PASS, image `sha256:e7b0c574504f99c99873995c6afc0c4d752a3c169d48014916f21660ac689ab2`.
+- Existing frontend Container App provisioning and scale configuration - PASS (`min 1`, `max 1`).
+- Frontend managed identity `AcrPull` at the registry scope - PASS.
+- `bash -n .azure/deploy-aca.sh` and `git diff --check` - PASS.
+
+Fabric analytics release revalidated on 2026-08-18 at `2026-08-18T19:10:58Z`:
+
+- `origin/main` divergence check - PASS (`0` ahead, `0` behind before commit).
+- Frontend production build and type checking - PASS.
+- Frontend tests - PASS (`46 passed`).
+- `docker build -f frontend/Dockerfile .` - PASS, image `sha256:478dd5ba31682e987a601a6953f15fc558b95edac200fe8434119dfdc9b9ec86`.
+- Existing frontend Container App provisioning and scale configuration - PASS (`min 1`, `max 1`).
+- Frontend managed identity `AcrPull` at the registry scope - PASS.
+- `bash -n .azure/deploy-aca.sh`, ignored local deployment details, and `git diff --check` - PASS.
+
 - `bash -n .azure/deploy-aca.sh` - PASS.
 - `git check-ignore --no-index .azure/aca-deployment.local.json` - PASS; local details are excluded by `.git/info/exclude`.
 - `docker build -f backend/Dockerfile .` - PASS, image `sha256:6687524dcfb73bc2c1b1e59ab38e105d3f3fde54b807e4ecead5b3122fcbe25f`.
@@ -93,6 +125,30 @@ Validated on 2026-08-06 against subscription `fd918039-a89e-49a7-8e32-af614b3765
 - Deployment script: `bash -n` passed; Azure CLI commands and authenticated subscription context are available.
 
 ## 8. Deployment Results
+
+Frontend copy update deployed successfully on 2026-08-18:
+
+| Component | Result |
+| --- | --- |
+| Public frontend | `https://ca-stt-pii-web.wittysand-9e0f9316.eastus.azurecontainerapps.io` returned HTTP 200 with the approved test-recording wording |
+| Proxied health endpoint | `https://ca-stt-pii-web.wittysand-9e0f9316.eastus.azurecontainerapps.io/api/health` returned HTTP 200 with `{"status":"ok"}` |
+| Frontend revision | `ca-stt-pii-web--0000007`, healthy, 100% traffic |
+| Frontend image | `acrsttpiifd9180.azurecr.io/azure-stt-pii-frontend:copyfix-b3a5e45fcecc-20260818180317` |
+| Frontend scale | Minimum 1, maximum 1 replica |
+
+Live role verification passed for the frontend identity's `AcrPull` assignment at the registry scope.
+
+Frontend-only update deployed successfully on 2026-08-18:
+
+| Component | Result |
+| --- | --- |
+| Public frontend | `https://ca-stt-pii-web.wittysand-9e0f9316.eastus.azurecontainerapps.io` returned HTTP 200 |
+| Proxied health endpoint | `https://ca-stt-pii-web.wittysand-9e0f9316.eastus.azurecontainerapps.io/api/health` returned HTTP 200 with `{"status":"ok"}` |
+| Cached benchmark endpoint | `https://ca-stt-pii-web.wittysand-9e0f9316.eastus.azurecontainerapps.io/api/benchmark/default` returned HTTP 200 |
+| Frontend revision | `ca-stt-pii-web--0000006`, healthy, 100% traffic |
+| Frontend image | `acrsttpiifd9180.azurecr.io/azure-stt-pii-frontend:hotfix-b3a5e45fcecc-20260818175531` |
+
+Live role verification passed for the frontend identity's `AcrPull` assignment at the registry scope.
 
 Deployed successfully on 2026-08-06 to Azure Container Apps in East US.
 

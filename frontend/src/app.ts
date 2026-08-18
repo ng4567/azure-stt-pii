@@ -70,6 +70,7 @@ const settledJobs = new Set<string>();
 /** `#evidence` / `#technical` select a view, so a link can point at one. */
 const VIEW_HASHES: Record<string, string> = {
   "#business": "view-business",
+  "#analytics": "view-analytics",
   "#evidence": "view-evidence",
   "#technical": "view-technical",
 };
@@ -78,6 +79,7 @@ const views = setupViewTabs(
   el<HTMLElement>("view-tabs"),
   [
     el<HTMLElement>("view-business"),
+    el<HTMLElement>("view-analytics"),
     el<HTMLElement>("view-evidence"),
     el<HTMLElement>("view-technical"),
   ],
@@ -130,7 +132,7 @@ function redraw(): void {
     calculatorBuilt = true;
   }
 
-  renderSourceNotice(sourceNotice, source, focusRunPanel);
+  renderSourceNotice(sourceNotice, source);
   renderBusinessCase(businessSummary, report, settings);
   renderPricingResults(pricingResults, report, settings);
   renderCachedBenchmark(cachedPanel, report, settings);
@@ -220,7 +222,7 @@ async function startRun(useAttachments: boolean): Promise<void> {
 
   if (useAttachments && !audio) {
     setMessage(
-      "Attach a call recording first, or use “Re-run the built-in call”.",
+      "Attach an approved test recording first, or use “Re-run the built-in call”.",
       "error",
     );
     audioInput.focus();

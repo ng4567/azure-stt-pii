@@ -414,20 +414,21 @@ define a summary-safety score. The refreshed cached report therefore contains
 # Running it
 
 The app opens on the **business case** view, which reads the checked-in result and
-needs no Azure access. **Call evidence** links the recording, the reference script, and
-both stacks' transcripts back to the files in `data/`. **Technical details** holds the
-measured tables and the run history; `#business`, `#evidence`, and `#technical`
-deep-link to each.
+needs no Azure access. **Post-call analytics** explains the Oracle-to-Fabric
+architecture and gives sellers a customer-outcome talk track. **Call evidence** links
+the recording, the reference script, and both stacks' transcripts back to the files
+in `data/`. **Technical details** holds the measured tables and the run history;
+`#business`, `#analytics`, `#evidence`, and `#technical` deep-link to each.
 
-### Built-in call, or your own
+### Built-in call, or an approved test recording
 
-Every figure in the app comes from one selected recording, named in the bar at the top
-of the page. That is the built-in sample call until you run your own, and the business
-case says so in as many words — a price quoted from the wrong call is worse than no
-price at all.
+Every benchmark figure in the app comes from one selected recording, named in the bar
+at the top of the page. That is the built-in sample call until an approved test run
+finishes.
 
-To use a customer's recording, open **Use the built-in call, or your own** on the
-business case and attach it. Audio is the only required input:
+To use another recording, open **Use the built-in call, or an approved test
+recording** on the business case and attach only synthetic or approved non-customer
+audio. Audio is the only required input:
 
 | Input | Required | What it buys |
 | --- | --- | --- |
@@ -437,7 +438,7 @@ business case and attach it. Audio is the only required input:
 
 Both architectures then run concurrently against that audio. When the run finishes the
 app switches to it automatically, and every cost, latency, accuracy, and transcript
-figure — on all three views — is recomputed from that call. The recording picker
+figure on the benchmark views is recomputed from that call. The recording picker
 switches back to the built-in sample, or between runs, at any time.
 
 "Re-run the built-in call" runs the shipped fixture live against Azure instead of

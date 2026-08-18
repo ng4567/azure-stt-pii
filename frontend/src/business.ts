@@ -93,7 +93,7 @@ function renderHero(projection: Projection): HTMLElement {
         Moving this workload from Azure Speech + Azure AI Language to MAI-Transcribe-1.5
         with a Foundry model cuts the run rate from <strong>${formatMoney(legacy.annualNet)}</strong>
         to <strong>${formatMoney(modern.annualNet)}</strong> a year${
-          savingPercent === null ? "" : ` — <strong>${formatDelta(-savingPercent)}</strong>`
+          savingPercent === null ? "" : ` — <strong>${Math.round(savingPercent * 100)}% less</strong>`
         },
         while cutting the transcription error rate by more than a third.
       </p>

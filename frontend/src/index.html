@@ -55,6 +55,18 @@
           class="viewtab"
           role="tab"
           aria-selected="false"
+          aria-controls="view-analytics"
+          data-panel="view-analytics"
+          tabindex="-1"
+        >
+          <span class="viewtab__name">Post-call analytics</span>
+          <span class="viewtab__meta">Fabric architecture and talk track</span>
+        </button>
+        <button
+          type="button"
+          class="viewtab"
+          role="tab"
+          aria-selected="false"
           aria-controls="view-evidence"
           data-panel="view-evidence"
           tabindex="-1"
@@ -86,11 +98,11 @@
 
         <details class="panel panel--run" id="run-panel">
           <summary class="run-summary">
-            <span class="run-summary__title">Use the built-in call, or your own</span>
+            <span class="run-summary__title">Use the built-in call, or an approved test recording</span>
             <span class="run-summary__hint">
-              The comparison runs on the built-in sample out of the box. Attach a
-              customer recording to re-run both architectures against it and price the
-              migration on their real calls.
+              The comparison runs on a synthetic sample out of the box. To test another
+              recording, attach only synthetic or approved non-customer audio. Do not
+              upload customer data.
             </span>
           </summary>
 
@@ -148,7 +160,7 @@
               </div>
             </div>
             <div class="actions">
-              <button type="submit" id="upload-button">Run on my call</button>
+              <button type="submit" id="upload-button">Run on this test call</button>
               <button type="button" id="run-default-button" class="ghost">
                 Re-run the built-in call
               </button>
@@ -232,6 +244,161 @@
             title="Architecture diagram"
             src="/api/architecture-diagrams/architecture-1-azure-language"
           ></iframe>
+        </section>
+      </div>
+
+      <!-- ------------------------------------------ post-call analytics -->
+      <div id="view-analytics" class="view view--fabric" role="tabpanel" aria-labelledby="view-tabs" hidden>
+        <section class="fabric-hero" aria-labelledby="fabric-hero-heading">
+          <div class="fabric-hero__body">
+            <p class="fabric-eyebrow">Post-call analytics · Microsoft Fabric</p>
+            <h1 id="fabric-hero-heading">
+              From a finished call to an answer the business can act on.
+            </h1>
+            <p class="fabric-hero__lede">
+              The call-processing layer emits a narrow, PII-safe business record.
+              Fabric makes that record continuously available for governed metrics,
+              cross-domain analysis, and natural-language questions.
+            </p>
+            <div class="fabric-badges" aria-label="Architecture boundaries">
+              <span>Customer-owned analytics estate</span>
+              <span>Raw audio stays outside analytics</span>
+              <span>Blueprint, not benchmarked</span>
+            </div>
+          </div>
+          <aside class="fabric-boundary" aria-label="Analytics data boundary">
+            <span class="fabric-boundary__label">The analytics boundary</span>
+            <strong>Only the useful signal crosses.</strong>
+            <p>
+              Redacted summary, normalized attributes, call outcomes, and operational
+              measures. No raw audio or unredacted transcript enters OneLake.
+            </p>
+          </aside>
+        </section>
+
+        <section class="panel fabric-architecture" aria-labelledby="fabric-architecture-heading">
+          <div class="panel__head panel__head--row">
+            <h2 id="fabric-architecture-heading">Architecture used with Fabric</h2>
+            <p class="panel__hint">
+              Oracle remains the system of record; Fabric adds a governed analytics
+              plane without introducing a scheduled copy pipeline.
+            </p>
+          </div>
+
+          <ol class="fabric-flow">
+            <li>
+              <span class="fabric-flow__number">01</span>
+              <span class="fabric-flow__product">Call processing</span>
+              <h3>PII-safe call record</h3>
+              <p>Redacted summary, disposition, churn signals, escalation flags, and handle time.</p>
+            </li>
+            <li>
+              <span class="fabric-flow__number">02</span>
+              <span class="fabric-flow__product">Oracle Database 19c</span>
+              <h3>System of record</h3>
+              <p>The existing <code>call_analytics</code> table stays authoritative for operational writes.</p>
+            </li>
+            <li>
+              <span class="fabric-flow__number">03</span>
+              <span class="fabric-flow__product">Fabric Mirroring</span>
+              <h3>Continuous replication</h3>
+              <p>LogMiner redo flows through the on-premises gateway with no ETL schedule to maintain.</p>
+            </li>
+            <li>
+              <span class="fabric-flow__number">04</span>
+              <span class="fabric-flow__product">OneLake</span>
+              <h3>One analytics copy</h3>
+              <p>Delta tables become available to Fabric engines without moving the source workload.</p>
+            </li>
+            <li>
+              <span class="fabric-flow__number">05</span>
+              <span class="fabric-flow__product">Semantic model</span>
+              <h3>Governed KPI layer</h3>
+              <p>Direct Lake exposes 15 shared measures for churn, revenue risk, service quality, and cost.</p>
+            </li>
+            <li>
+              <span class="fabric-flow__number">06</span>
+              <span class="fabric-flow__product">Fabric Data Agent</span>
+              <h3>Questions in plain language</h3>
+              <p>Leaders query governed measures and row-level detail directly or through Microsoft 365 Copilot.</p>
+            </li>
+          </ol>
+        </section>
+
+        <section class="panel fabric-pitch" aria-labelledby="fabric-pitch-heading">
+          <div class="panel__head panel__head--row">
+            <h2 id="fabric-pitch-heading">How to pitch it</h2>
+            <p class="panel__hint">
+              Lead with a business decision, then explain why Fabric can answer it
+              consistently and safely.
+            </p>
+          </div>
+
+          <div class="pitch-grid">
+            <article class="pitch-card">
+              <span class="pitch-card__cue">Lead with revenue</span>
+              <h3>Find revenue at risk before it becomes churn.</h3>
+              <p>
+                Show calls that mention a competitor and request cancellation, then
+                join those signals to billing context. A transcript-only tool cannot
+                calculate the recurring revenue attached to those conversations.
+              </p>
+              <strong>Demo question</strong>
+              <q>How much annual revenue is at risk from competitor-related cancellation calls?</q>
+            </article>
+            <article class="pitch-card">
+              <span class="pitch-card__cue">Prove consistency</span>
+              <h3>Give every team the same definition.</h3>
+              <p>
+                Save rate, escalation rate, first-contact resolution, and revenue at
+                risk live as reviewed measures in the semantic model—not as fresh SQL
+                invented for every question.
+              </p>
+              <strong>Customer value</strong>
+              <p>Operations, finance, and leadership see the same governed answer.</p>
+            </article>
+            <article class="pitch-card">
+              <span class="pitch-card__cue">Reduce data friction</span>
+              <h3>Keep Oracle. Remove the copy-pipeline burden.</h3>
+              <p>
+                Mirroring continuously reads Oracle redo into OneLake. There is no
+                watermark logic, incremental-load schedule, or second ingestion
+                estate to operate.
+              </p>
+              <strong>Customer value</strong>
+              <p>Modern analytics without forcing a source-system migration first.</p>
+            </article>
+          </div>
+
+          <aside class="talk-track">
+            <span class="talk-track__label">60-second talk track</span>
+            <blockquote>
+              “This is not another transcript repository. The call-processing layer
+              turns each conversation into a narrow, PII-safe business record while
+              raw audio and unredacted text stay outside the analytics estate. Oracle
+              remains your system of record. Fabric Mirroring makes those records
+              available in OneLake without a scheduled copy pipeline, the semantic
+              model gives every team one definition of the KPIs, and Fabric Data Agent
+              lets leaders ask business questions in plain language. Start with
+              revenue at risk: connect competitor and cancellation signals from calls
+              to the billing context a transcript tool cannot see.”
+            </blockquote>
+          </aside>
+        </section>
+
+        <section class="fabric-facts" aria-label="Delivery facts">
+          <article>
+            <strong>What stays</strong>
+            <p>Oracle remains authoritative. Raw recordings and unredacted transcripts remain in their governed source.</p>
+          </article>
+          <article>
+            <strong>What Fabric adds</strong>
+            <p>Near-real-time mirroring, OneLake, governed Direct Lake measures, and a natural-language Data Agent.</p>
+          </article>
+          <article>
+            <strong>Set expectations</strong>
+            <p>The analytics path is a deployment blueprint, not part of the measured STT benchmark. Data Agent requires Fabric F2 or higher.</p>
+          </article>
         </section>
       </div>
 
