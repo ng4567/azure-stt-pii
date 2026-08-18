@@ -1,4 +1,4 @@
-/** Pure rendering helpers: state in, DOM out. */
+/** Technical detail: the measured tables, uploads, and run history. State in, DOM out. */
 import type {
   ArchitectureResult,
   ArchitectureStage,
@@ -7,27 +7,37 @@ import type {
   Job,
   UploadMeta,
 } from "./api.ts";
-import { estimateArchitectureCosts } from "./pricing.ts";
+import {
+  ARCHITECTURE_ORDER,
+  ENGINE_ORDER,
+  PROFILES,
+  isKnownArchitecture,
+  isKnownEngine,
+  orderedEntries,
+} from "./catalog.ts";
+import {
+  escapeHtml,
+  formatBytes,
+  formatDuration,
+  formatPercent,
+  formatSeconds,
+  formatUnitCost,
+} from "./format.ts";
+import {
+  DEFAULT_SETTINGS,
+  FAMILY_LABELS,
+  discountFor,
+  estimateArchitectureCosts,
+  type PricingSettings,
+} from "./pricing.ts";
+import { renderPricingSources } from "./pricing-sources.ts";
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-}
-
-export function formatDuration(seconds: number): string {
-  const total = Math.round(seconds);
-  const minutes = Math.floor(total / 60);
-  return minutes > 0 ? `${minutes}m ${total % 60}s` : `${total}s`;
-}
-
-export function formatPercent(value: number | undefined): string {
-  return value === undefined ? "—" : `${(value * 100).toFixed(2)}%`;
-}
-
-export function formatSeconds(value: number | null | undefined): string {
-  return value === null || value === undefined ? "—" : `${value.toFixed(2)}s`;
-}
+export {
+  formatBytes,
+  formatDuration,
+  formatPercent,
+  formatSeconds,
+} from "./format.ts";
 
 type WinnerDirection = "min" | "max";
 
@@ -86,16 +96,6 @@ const STAGE_LABELS: Record<string, string> = {
   pii_redaction: "PII redaction",
   summarization: "Summarization",
 };
-const ENGINE_ORDER = [
-  "architecture-1-azure-speech-realtime",
-  "architecture-2-mai-transcribe-realtime",
-  "architecture-3-mai-transcribe-batch",
-];
-const ARCHITECTURE_ORDER = [
-  "architecture-1-azure-language",
-  "architecture-2-mai-realtime-deepseek",
-  "architecture-3-mai-batch-deepseek",
-];
 
 const SUMMARY_ONLY_NOTE = "sanitized summary only";
 
@@ -151,8 +151,8 @@ function labelCell(label: string, suffix = "", architectureId = ""): string {
   const { index, name } = labelParts(label);
   const fallback = /^architecture-(\d+)/.exec(architectureId)?.[1] ?? null;
   const number = index ?? fallback;
-  const marker = number ? `<span class="arch-cell__index">${number}</span>` : "";
-  return `<td><span class="arch-cell"><span class="arch-cell__name">${marker}<span>${name}</span></span>${suffix}</span></td>`;
+  const marker = number ? `<span class="arch-cell__index">${escapeHtml(number)}</span>` : "";
+  return `<td><span class="arch-cell"><span class="arch-cell__name">${marker}<span>${escapeHtml(name)}</span></span>${suffix}</span></td>`;
 }
 
 function summaryOnlyChip(result: ArchitectureResult): string {
@@ -196,12 +196,18 @@ function section(title: string, className = "comparison-section"): HTMLElement {
 }
 
 function architectureEntries(report: BenchmarkReport): ArchitectureResult[] {
-  return Object.entries(report.architectures ?? {})
-    .sort(
-      ([left], [right]) =>
-        ARCHITECTURE_ORDER.indexOf(left) - ARCHITECTURE_ORDER.indexOf(right),
-    )
-    .map(([, result]) => result);
+  return orderedEntries(report.architectures, ARCHITECTURE_ORDER).map(([, result]) => result);
+}
+
+function engineEntries(report: BenchmarkReport): Array<[string, EngineResult]> {
+  return orderedEntries(report.engines, ENGINE_ORDER);
+}
+
+/** PII scoring is keyed by architecture id, and retired ids must not surface. */
+function piiEntries(report: BenchmarkReport): Array<[string, NonNullable<BenchmarkReport["pii_accuracy"]>[string]]> {
+  return Object.entries(report.pii_accuracy ?? {}).filter(([key]) =>
+    isKnownArchitecture(key),
+  );
 }
 
 interface Kpi {
@@ -211,7 +217,10 @@ interface Kpi {
 }
 
 /** At-a-glance winners, so a report reads without scanning every table. */
-export function renderScorecard(report: BenchmarkReport): HTMLElement {
+export function renderScorecard(
+  report: BenchmarkReport,
+  settings: PricingSettings = DEFAULT_SETTINGS,
+): HTMLElement {
   const architectures = architectureEntries(report).filter(
     (result) => result.status === "succeeded",
   );
@@ -221,20 +230,16 @@ export function renderScorecard(report: BenchmarkReport): HTMLElement {
     "min",
   );
   const cheapest = leader(
-    estimateArchitectureCosts(report).filter((estimate) => estimate.complete),
-    (estimate) => estimate.discountedTotal,
+    estimateArchitectureCosts(report, settings).filter((estimate) => estimate.complete),
+    (estimate) => estimate.netTotal,
     "min",
   );
   const mostAccurate = leader(
-    Object.values(report.engines ?? {}),
+    engineEntries(report).map(([, entry]) => entry),
     (entry) => entry.metrics?.wer,
     "min",
   );
-  const bestPii = leader(
-    Object.entries(report.pii_accuracy ?? {}),
-    ([, metrics]) => metrics.f1,
-    "max",
-  );
+  const bestPii = leader(piiEntries(report), ([, metrics]) => metrics.f1, "max");
 
   const kpis: Kpi[] = [
     {
@@ -250,9 +255,9 @@ export function renderScorecard(report: BenchmarkReport): HTMLElement {
       meta: fastest ? shortLabel(fastest.item.label) : "no pipeline timings",
     },
     {
-      label: "Lowest cost",
-      value: cheapest ? `$${cheapest.value.toFixed(4)}` : "—",
-      meta: cheapest ? `${shortLabel(cheapest.item.label)} · discounted` : "usage missing",
+      label: "Lowest cost per call",
+      value: cheapest ? formatUnitCost(cheapest.value) : "—",
+      meta: cheapest ? shortLabel(cheapest.item.label) : "usage missing",
     },
     {
       label: "Best WER",
@@ -298,7 +303,7 @@ function renderArchitectureResults(report: BenchmarkReport): HTMLElement {
   if (entries.length === 0) {
     container.append(
       note(
-        "This saved comparison predates the end-to-end pipeline timings. Start a benchmark to measure STT, downstream stages, and total latency for all three architectures.",
+        "This saved comparison predates the end-to-end pipeline timings. Start a benchmark to measure STT, downstream stages, and total latency for both architectures.",
       ),
     );
     return container;
@@ -324,9 +329,9 @@ function renderArchitectureResults(report: BenchmarkReport): HTMLElement {
     <thead><tr><th>Architecture</th><th>End to end</th><th>STT ready</th><th>Downstream</th></tr></thead>
     <tbody>${entries.map((result: ArchitectureResult) => {
       if (result.status === "failed" || !result.latency) {
-        return `<tr>${labelCell(result.label)}<td colspan="3">failed: ${
-          result.error ?? "unknown error"
-        }</td></tr>`;
+        return `<tr>${labelCell(result.label)}<td colspan="3">failed: ${escapeHtml(
+          result.error ?? "unknown error",
+        )}</td></tr>`;
       }
       return `<tr>
         ${labelCell(result.label, summaryOnlyChip(result))}
@@ -385,9 +390,9 @@ function renderArchitectureResults(report: BenchmarkReport): HTMLElement {
         const metrics = stageMetricSummary(key, stage);
         return `
         <tr>
-          <td>${STAGE_LABELS[key] ?? key.replaceAll("_", " ")}</td>
-          <td>${stage.provider} · ${stage.model}${
-            metrics ? `<span class="stage-metrics">${metrics}</span>` : ""
+          <td>${escapeHtml(STAGE_LABELS[key] ?? key.replaceAll("_", " "))}</td>
+          <td>${escapeHtml(stage.provider)} · ${escapeHtml(stage.model)}${
+            metrics ? `<span class="stage-metrics">${escapeHtml(metrics)}</span>` : ""
           }</td>
           <td class="numeric">${formatSeconds(stageDuration(key, stage))}</td>
         </tr>`;
@@ -414,62 +419,63 @@ function renderArchitectureResults(report: BenchmarkReport): HTMLElement {
   return container;
 }
 
-function renderPricing(report: BenchmarkReport): HTMLElement {
+function renderPricing(
+  report: BenchmarkReport,
+  settings: PricingSettings,
+): HTMLElement {
   const container = section(
-    "Estimated processing cost",
+    "Per-call cost breakdown",
     "comparison-section pricing-results",
   );
 
-  const costs = estimateArchitectureCosts(report);
+  const costs = estimateArchitectureCosts(report, settings);
   const complete = costs.filter((estimate) => estimate.complete);
   const bestList = bestValue(complete.map((estimate) => estimate.listTotal), "min");
-  const bestDiscounted = bestValue(
-    complete.map((estimate) => estimate.discountedTotal),
-    "min",
-  );
-  const bestSavings = bestValue(
-    complete.map((estimate) => estimate.listTotal - estimate.discountedTotal),
-    "max",
-  );
+  const bestNet = bestValue(complete.map((estimate) => estimate.netTotal), "min");
   container.append(
     table(`
-    <thead><tr><th>Architecture</th><th>Components</th><th>List total</th><th>Discounted total</th><th>Savings</th></tr></thead>
-    <tbody>${costs.map((estimate) => {
-      const savings = estimate.listTotal - estimate.discountedTotal;
-      return `<tr>
+    <thead><tr><th>Architecture</th><th>Components</th><th>List total</th><th>Your rate</th></tr></thead>
+    <tbody>${costs.map((estimate) => `<tr>
         ${labelCell(estimate.label, "", estimate.architectureId)}
         <td class="cost-components">${estimate.components
-          .map((component) => `${component.label}: ${component.usage} ($${component.listCost?.toFixed(4) ?? "—"} list → $${component.discountedCost?.toFixed(4) ?? "—"})`)
+          .map(
+            (component) =>
+              `${escapeHtml(component.label)}: ${escapeHtml(component.usage)} (${
+                component.listCost === null ? "—" : formatUnitCost(component.listCost)
+              } list → ${
+                component.netCost === null ? "—" : formatUnitCost(component.netCost)
+              })`,
+          )
           .join("<br>")}</td>
         ${winnerCell(
-          `$${estimate.listTotal.toFixed(4)}`,
+          formatUnitCost(estimate.listTotal),
           estimate.complete ? estimate.listTotal : null,
           bestList,
         )}
         ${winnerCell(
-          `$${estimate.discountedTotal.toFixed(4)}`,
-          estimate.complete ? estimate.discountedTotal : null,
-          bestDiscounted,
+          formatUnitCost(estimate.netTotal),
+          estimate.complete ? estimate.netTotal : null,
+          bestNet,
         )}
-        ${winnerCell(
-          `$${savings.toFixed(4)}`,
-          estimate.complete ? savings : null,
-          bestSavings,
-        )}
-      </tr>`;
-    }).join("")}</tbody>`),
+      </tr>`).join("")}</tbody>`),
   );
 
+  const applied = (["speech", "language", "llm"] as const)
+    .map((family) => `${Math.round(discountFor(family, settings) * 100)}% off ${FAMILY_LABELS[family]}`)
+    .join("; ");
   const missingRates = [...new Set(costs.flatMap((estimate) =>
     estimate.components.flatMap((component) => component.missing ? [component.missing] : []),
   ))];
   container.append(
     note(
-      `Applied discounts: 90% on Azure Speech and MAI-Transcribe; 70% on Conversation PII and summarization; no DeepSeek discount. ` +
+      `Discounts applied: ${applied}. ` +
         (missingRates.length ? `Missing usage: ${missingRates.join("; ")}. ` : "") +
-        `Audio estimates multiply duration by channel count. DeepSeek cached-input pricing is configured but unused because cache usage is not reported. ` +
-        `Hosting, storage, logging, and Voice Live host-model charges are excluded.`,
+        `Per-call figures price Conversation PII at the first volume tier; the business case ` +
+        `walks the tier ladder for its monthly volume. Audio estimates multiply duration by ` +
+        `channel count. Hosting, storage, logging, Fabric capacity, and Voice Live host-model ` +
+        `charges are excluded.`,
     ),
+    renderPricingSources(),
   );
   return container;
 }
@@ -508,7 +514,7 @@ function renderParticipantWer(
     table(
       "<thead><tr><th>Architecture</th><th>Participant</th><th>WER</th></tr></thead>" +
         `<tbody>${rows.map((row) =>
-          `<tr>${labelCell(row.label)}<td>${row.participant}</td>${winnerCell(
+          `<tr>${labelCell(row.label)}<td>${escapeHtml(row.participant)}</td>${winnerCell(
             formatPercent(row.wer),
             row.wer,
             bestByParticipant.get(row.participant) ?? null,
@@ -553,7 +559,7 @@ function renderSttComparison(
     <thead>
       <tr>
         <th>Architecture</th><th>WER</th><th>Accuracy</th>
-        <th>Primary latency</th><th>p95 lag</th>
+        <th>Mean lag</th><th>p95 lag</th>
         <th title="Seconds from the start of the call until the full transcript exists">
           Transcript ready
         </th>
@@ -564,7 +570,7 @@ function renderSttComparison(
       if (entry.error || !entry.metrics) {
         return `<tr>
           ${labelCell(entry.label)}
-          <td colspan="6" class="numeric">failed: ${entry.error ?? "no metrics"}</td>
+          <td colspan="6" class="numeric">failed: ${escapeHtml(entry.error ?? "no metrics")}</td>
         </tr>`;
       }
       const metrics = entry.metrics;
@@ -592,8 +598,8 @@ function renderSttComparison(
   const explanation = document.createElement("p");
   explanation.className = "section-note";
   explanation.innerHTML =
-    `<strong>Transcript ready</strong> is measured from the start of the call: ` +
-    `real-time engines overlap the call, batch cannot start until the caller hangs up. ` +
+    `<strong>Transcript ready</strong> is measured from the start of the call. Both engines ` +
+    `transcribe as the call happens, so both land within about a second of the caller hanging up. ` +
     (report.scored
       ? `Scored against ${report.reference_words} reference words · ${report.vad_utterances} VAD utterances · ${formatDuration(report.audio_seconds)} of audio.`
       : `No reference transcript was uploaded, so WER is not scored. Latency and transcripts are still measured.`);
@@ -607,7 +613,7 @@ function renderSttComparison(
 function renderPiiAccuracy(report: BenchmarkReport): HTMLElement {
   const container = section("PII redaction accuracy");
 
-  const entries = Object.entries(report.pii_accuracy ?? {});
+  const entries = piiEntries(report);
   if (entries.length === 0) {
     container.append(
       note(
@@ -659,7 +665,7 @@ function renderPiiAccuracy(report: BenchmarkReport): HTMLElement {
       </tr>`
     ).join("")}</tbody>`),
     note(
-      "Exact source-turn spans determine precision, recall, F1, and leakage. Category accuracy is measured on matched spans; alignment excludes reference entities lost or changed by STT.",
+      "Exact source-turn spans determine precision, recall, F1, and leakage. Category accuracy is measured on matched spans; alignment excludes reference entities lost or changed by STT. Only the current-state architecture returns a redacted transcript, so it is the only one scored here — the modernized path is scored on what it does return, a summary that never contained the PII in the first place.",
     ),
   );
   return container;
@@ -720,10 +726,10 @@ export function renderUploads(
       main.className = "row-main";
       const description = describeUpload(upload);
       const lines = description
-        ? description.split("  |  ").map((part) => `<span>${part}</span>`).join("")
+        ? description.split("  |  ").map((part) => `<span>${escapeHtml(part)}</span>`).join("")
         : "empty upload";
       main.innerHTML = `
-        <div class="row-title">${upload.label ?? upload.id}</div>
+        <div class="row-title">${escapeHtml(upload.label ?? upload.id)}</div>
         <div class="row-meta">${lines}</div>
         <div class="badges">
           ${upload.builtin ? `<span class="badge builtin">default</span>` : ""}
@@ -755,18 +761,19 @@ export function renderUploads(
   );
 }
 
-export function renderMetricsTable(report: BenchmarkReport): HTMLElement {
+export function renderMetricsTable(
+  report: BenchmarkReport,
+  settings: PricingSettings = DEFAULT_SETTINGS,
+): HTMLElement {
   const wrapper = document.createElement("div");
   wrapper.className = "report";
-  const entries = Object.entries(report.engines).sort(
-    ([left], [right]) => ENGINE_ORDER.indexOf(left) - ENGINE_ORDER.indexOf(right),
-  );
+  const entries = engineEntries(report);
   wrapper.append(
-    renderScorecard(report),
+    renderScorecard(report, settings),
     renderArchitectureResults(report),
     renderSttComparison(report, entries),
     renderPiiAccuracy(report),
-    renderPricing(report),
+    renderPricing(report, settings),
   );
 
   const outputs = document.createElement("section");
@@ -809,11 +816,20 @@ export function renderMetricsTable(report: BenchmarkReport): HTMLElement {
   return wrapper;
 }
 
-export function renderCachedBenchmark(panel: HTMLElement, report: BenchmarkReport): void {
-  panel.replaceChildren(renderMetricsTable(report));
+export function renderCachedBenchmark(
+  panel: HTMLElement,
+  report: BenchmarkReport,
+  settings: PricingSettings = DEFAULT_SETTINGS,
+): void {
+  panel.replaceChildren(renderMetricsTable(report, settings));
 }
 
-export function renderJobs(panel: HTMLElement, jobs: Job[], now = Date.now()): void {
+export function renderJobs(
+  panel: HTMLElement,
+  jobs: Job[],
+  now = Date.now(),
+  settings: PricingSettings = DEFAULT_SETTINGS,
+): void {
   if (jobs.length === 0) {
     panel.innerHTML = `<p class="empty">No benchmark runs yet.</p>`;
     return;
@@ -839,11 +855,12 @@ export function renderJobs(panel: HTMLElement, jobs: Job[], now = Date.now()): v
       }
 
       const engineBadges = Object.entries(job.engines)
+        .filter(([key]) => isKnownEngine(key))
         .map(
           ([key, state]) =>
-            `<span class="badge ${state}">${
-              job.engine_labels[key] ?? key
-            }: ${state}</span>`,
+            `<span class="badge ${escapeHtml(state)}">${escapeHtml(
+              job.engine_labels[key] ?? key,
+            )}: ${escapeHtml(state)}</span>`,
         )
         .join("");
 
@@ -865,10 +882,10 @@ export function renderJobs(panel: HTMLElement, jobs: Job[], now = Date.now()): v
       header.innerHTML = `
         <div class="row-main">
           <div class="row-title job__id">
-            ${job.id}
-            <span class="badge ${job.status}">${job.status}</span>
+            ${escapeHtml(job.id)}
+            <span class="badge ${escapeHtml(job.status)}">${escapeHtml(job.status)}</span>
           </div>
-          <div class="row-meta">upload ${job.upload_id}${elapsed}</div>
+          <div class="row-meta">upload ${escapeHtml(job.upload_id)}${escapeHtml(elapsed)}</div>
         </div>
         <div class="badges">${engineBadges}</div>`;
       card.append(header);
@@ -881,7 +898,7 @@ export function renderJobs(panel: HTMLElement, jobs: Job[], now = Date.now()): v
       }
 
       if (job.status === "succeeded" && job.result) {
-        card.append(renderMetricsTable(job.result));
+        card.append(renderMetricsTable(job.result, settings));
       } else if (job.status === "running") {
         const progress = document.createElement("div");
         progress.className = "progress";
@@ -903,4 +920,22 @@ export function renderJobs(panel: HTMLElement, jobs: Job[], now = Date.now()): v
       return card;
     }),
   );
+}
+
+/** Methodology caveats, so a technical reader can weigh every figure on this site. */
+export function renderCaveats(): HTMLElement {
+  const container = section("How to read these numbers", "comparison-section");
+  const list = document.createElement("ul");
+  list.className = "caveat-list";
+  list.innerHTML = [
+    "The audio is synthesized, with no overlapping speech, crosstalk, or line noise. Absolute error rates and lags are better here than they will be on real recordings; the relative comparison between the two stacks is the part that carries over.",
+    "Unit prices are Azure list price in East US, before the discounts entered on the business case. Conversation PII tiers and the cheapest valid Standard, 3M, or 10M summarization plan are modelled; Foundry reserved capacity is represented only through the effective discount input.",
+    "Stereo audio is submitted as two independent mono channels, so audio-hour costs multiply by channel count. Whether Azure bills that as one call-hour or two processed hours is unverified; two is the conservative planning bound.",
+    `Only ${PROFILES[ARCHITECTURE_ORDER[0]]!.name} returns a redacted transcript, so it is the only architecture with transcript-level PII scores. Alignment rate shows how many reference annotations survived transcription at all — it separates STT loss from redaction loss.`,
+    "Monthly and annual projections scale one measured call linearly by volume and average handle time. Real call mixes vary in length and content.",
+  ]
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+  container.append(list);
+  return container;
 }

@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Latency, accuracy, and cost comparison of three Azure call-processing architectures."
+      content="Price a migration from Azure Speech + Azure AI Language to MAI-Transcribe with Foundry and Fabric: cost, accuracy, and latency, measured on the same call."
     />
-    <title>Call processing benchmark</title>
+    <title>Call processing migration</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to benchmark</a>
+    <a class="skip-link" href="#main">Skip to content</a>
 
     <header class="appbar">
       <div class="appbar__inner">
@@ -29,26 +29,70 @@
             </svg>
           </span>
           <span class="brand__text">
-            <strong>Call processing benchmark</strong>
-            <span>Speech-to-text · PII redaction · summarization</span>
+            <strong>Call processing migration</strong>
+            <span>Cost, accuracy, and latency on one measured call</span>
           </span>
         </div>
         <p id="backend-status" class="pill" role="status" aria-live="polite">
           checking backend…
         </p>
       </div>
+
+      <nav class="viewtabs" id="view-tabs" role="tablist" aria-label="Views">
+        <button
+          type="button"
+          class="viewtab is-active"
+          role="tab"
+          aria-selected="true"
+          aria-controls="view-business"
+          data-panel="view-business"
+        >
+          <span class="viewtab__name">Business case</span>
+          <span class="viewtab__meta">What it costs, what it buys</span>
+        </button>
+        <button
+          type="button"
+          class="viewtab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="view-evidence"
+          data-panel="view-evidence"
+          tabindex="-1"
+        >
+          <span class="viewtab__name">Call evidence</span>
+          <span class="viewtab__meta">The recording and every transcript</span>
+        </button>
+        <button
+          type="button"
+          class="viewtab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="view-technical"
+          data-panel="view-technical"
+          tabindex="-1"
+        >
+          <span class="viewtab__name">Technical details</span>
+          <span class="viewtab__meta">Stages, scoring, and live runs</span>
+        </button>
+      </nav>
     </header>
 
     <main id="main">
-      <div class="grid grid--setup">
-        <section class="panel panel--run" aria-labelledby="run-heading">
-          <div class="panel__head">
-            <h2 id="run-heading">Start a run</h2>
-            <p class="panel__hint">
-              Every input is optional. With nothing attached the built-in call runs;
-              attaching only a reference transcript rescores that same call.
-            </p>
-          </div>
+      <div class="sourcebar" id="source-bar" role="region" aria-label="Recording being priced"></div>
+
+      <!-- ------------------------------------------------ business case -->
+      <div id="view-business" class="view" role="tabpanel" aria-labelledby="view-tabs">
+        <div id="source-notice"></div>
+
+        <details class="panel panel--run" id="run-panel">
+          <summary class="run-summary">
+            <span class="run-summary__title">Use the built-in call, or your own</span>
+            <span class="run-summary__hint">
+              The comparison runs on the built-in sample out of the box. Attach a
+              customer recording to re-run both architectures against it and price the
+              migration on their real calls.
+            </span>
+          </summary>
 
           <form id="upload-form" novalidate>
             <div class="fields">
@@ -58,22 +102,29 @@
                   type="file"
                   id="audio-input"
                   accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg"
+                  required
                 />
-                <span class="field__hint">wav, mp3, m4a, flac, ogg</span>
+                <span class="field__hint">
+                  wav, mp3, m4a, flac, ogg. Stereo with the rep on one channel and the
+                  customer on the other gives speaker identity for free.
+                </span>
               </label>
               <label class="field field--file">
-                <span class="field__label">Reference transcript</span>
+                <span class="field__label">Reference transcript <span class="field__optional">optional</span></span>
                 <input type="file" id="transcript-input" accept=".txt,text/plain" />
-                <span class="field__hint">.txt — required to score WER</span>
+                <span class="field__hint">
+                  .txt — needed to score word error rate. Without it you still get
+                  latency, cost, and both transcripts.
+                </span>
               </label>
               <label class="field field--file">
-                <span class="field__label">PII ground truth</span>
+                <span class="field__label">PII ground truth <span class="field__optional">optional</span></span>
                 <input
                   type="file"
                   id="pii-ground-truth-input"
                   accept=".json,application/json"
                 />
-                <span class="field__hint">.json — needs a reference transcript</span>
+                <span class="field__hint">.json — needs a reference transcript.</span>
               </label>
               <div class="field field--pair">
                 <span class="field__label" id="participants-label">Participants</span>
@@ -97,124 +148,131 @@
               </div>
             </div>
             <div class="actions">
-              <button type="submit" id="upload-button">Run benchmark</button>
+              <button type="submit" id="upload-button">Run on my call</button>
+              <button type="button" id="run-default-button" class="ghost">
+                Re-run the built-in call
+              </button>
               <span id="upload-message" class="message" role="status" aria-live="polite"
               ></span>
             </div>
           </form>
 
           <p class="footnote">
-            Runs stream at 1x, so a run takes about as long as the recording. Pricing and
-            accuracy are recalculated from the submitted audio on every completed run.
+            Runs stream at 1x, so a run takes about as long as the recording, and it
+            makes billable Azure calls. When it finishes, every figure on this page
+            switches to that call automatically.
           </p>
+        </details>
+
+        <div id="business-summary">
+          <p class="empty">Loading the saved comparison…</p>
+        </div>
+
+        <section class="panel panel--pricing" aria-labelledby="pricing-heading">
+          <div class="panel__head">
+            <h2 id="pricing-heading">Price it for your customer</h2>
+            <p class="panel__hint">
+              Enter the discounts on their agreement. Everything below recalculates from
+              usage measured on the saved run — nothing is hardcoded.
+            </p>
+          </div>
+          <div id="pricing-controls"></div>
+          <div id="pricing-results"></div>
         </section>
 
-        <section class="panel panel--inputs" aria-labelledby="inputs-heading">
-          <div class="panel__head">
-            <h2 id="inputs-heading">Inputs</h2>
-            <p class="panel__hint">Uploads available to benchmark.</p>
+        <section class="panel panel--architectures" aria-labelledby="architectures-heading">
+          <div class="panel__head panel__head--row">
+            <h2 id="architectures-heading">How each one works</h2>
+            <p class="panel__hint">
+              Both land PII-safe records in the same Fabric analytics estate; only the
+              call-processing half differs.
+            </p>
           </div>
-          <div id="uploads"></div>
+
+          <div
+            class="arch-tabs"
+            id="architecture-tabs"
+            role="tablist"
+            aria-label="Architecture diagrams"
+          >
+            <a
+              class="arch-tab is-active"
+              role="tab"
+              aria-selected="true"
+              aria-controls="architecture-diagram-frame"
+              href="/api/architecture-diagrams/architecture-1-azure-language"
+              target="architecture-diagram-frame"
+            >
+              <span class="arch-tab__index">1</span>
+              <span class="arch-tab__body">
+                <span class="arch-tab__name">Today — Azure Speech + Azure AI Language</span>
+                <span class="arch-tab__meta">real-time STT · full redaction</span>
+              </span>
+            </a>
+            <a
+              class="arch-tab"
+              role="tab"
+              aria-selected="false"
+              aria-controls="architecture-diagram-frame"
+              href="/api/architecture-diagrams/architecture-2-mai-realtime-deepseek"
+              target="architecture-diagram-frame"
+            >
+              <span class="arch-tab__index">2</span>
+              <span class="arch-tab__body">
+                <span class="arch-tab__name">Modernized — MAI-Transcribe + Foundry</span>
+                <span class="arch-tab__meta">real-time STT · PII-safe summary</span>
+              </span>
+            </a>
+          </div>
+
+          <iframe
+            id="architecture-diagram-frame"
+            class="architecture-diagram"
+            name="architecture-diagram-frame"
+            title="Architecture diagram"
+            src="/api/architecture-diagrams/architecture-1-azure-language"
+          ></iframe>
         </section>
       </div>
 
-      <section class="panel panel--architectures" aria-labelledby="architectures-heading">
-        <div class="panel__head panel__head--row">
-          <h2 id="architectures-heading">Architectures</h2>
-          <p class="panel__hint">
-            Architecture 1 returns a redacted transcript and entities; 2 and 3 return a
-            sanitized summary only.
-          </p>
+      <!-- ----------------------------------------------- call evidence -->
+      <div id="view-evidence" class="view" role="tabpanel" aria-labelledby="view-tabs" hidden>
+        <div id="evidence">
+          <p class="empty">Loading the saved comparison…</p>
         </div>
+      </div>
 
-        <div class="arch-tabs" id="architecture-tabs" role="tablist" aria-label="Architecture diagrams">
-          <a
-            class="arch-tab is-active"
-            role="tab"
-            aria-selected="true"
-            aria-controls="architecture-diagram-frame"
-            href="/api/architecture-diagrams/architecture-1-azure-language"
-            target="architecture-diagram-frame"
-          >
-            <span class="arch-tab__index">1</span>
-            <span class="arch-tab__body">
-              <span class="arch-tab__name">Azure Speech + Azure Language</span>
-              <span class="arch-tab__meta">real-time STT · full redaction</span>
-            </span>
-          </a>
-          <a
-            class="arch-tab"
-            role="tab"
-            aria-selected="false"
-            aria-controls="architecture-diagram-frame"
-            href="/api/architecture-diagrams/architecture-2-mai-realtime-deepseek"
-            target="architecture-diagram-frame"
-          >
-            <span class="arch-tab__index">2</span>
-            <span class="arch-tab__body">
-              <span class="arch-tab__name">MAI real-time + DeepSeek</span>
-              <span class="arch-tab__meta">real-time STT · summary only</span>
-            </span>
-          </a>
-          <a
-            class="arch-tab"
-            role="tab"
-            aria-selected="false"
-            aria-controls="architecture-diagram-frame"
-            href="/api/architecture-diagrams/architecture-3-mai-batch-deepseek"
-            target="architecture-diagram-frame"
-          >
-            <span class="arch-tab__index">3</span>
-            <span class="arch-tab__body">
-              <span class="arch-tab__name">MAI batch + DeepSeek</span>
-              <span class="arch-tab__meta">post-call STT · summary only</span>
-            </span>
-          </a>
-        </div>
+      <!-- -------------------------------------------- technical details -->
+      <div id="view-technical" class="view" role="tabpanel" aria-labelledby="view-tabs" hidden>
+        <section class="panel panel--inputs" aria-labelledby="inputs-heading">
+          <div class="panel__head panel__head--row">
+            <h2 id="inputs-heading">Uploaded recordings</h2>
+            <p class="panel__hint">
+              Everything you have uploaded. Add one from the business case view.
+            </p>
+          </div>
+          <div id="uploads"></div>
+        </section>
 
-        <iframe
-          id="architecture-diagram-frame"
-          class="architecture-diagram"
-          name="architecture-diagram-frame"
-          title="Architecture diagram"
-          src="/api/architecture-diagrams/architecture-1-azure-language"
-        ></iframe>
-      </section>
+        <section class="panel" aria-labelledby="baseline-heading">
+          <div class="panel__head panel__head--row">
+            <h2 id="baseline-heading">Measured results</h2>
+            <p class="panel__hint">
+              The recording selected above — viewing saved results does not call Azure.
+            </p>
+          </div>
+          <div id="cached-results"><p class="empty">Loading saved baseline…</p></div>
+          <div id="caveats"></div>
+        </section>
 
-      <section class="panel" aria-labelledby="baseline-heading">
-        <div class="panel__head panel__head--row">
-          <h2 id="baseline-heading">Saved baseline</h2>
-          <p class="panel__hint">
-            Last saved results for the built-in call — viewing them does not call Azure.
-            <a
-              href="https://github.com/ng4567/azure-stt-pii/blob/main/data/mock-call-stereo.wav"
-              target="_blank"
-              rel="noreferrer"
-              >audio</a
-            >
-            ·
-            <a
-              href="https://github.com/ng4567/azure-stt-pii/blob/main/data/mock-call-transcript.txt"
-              target="_blank"
-              rel="noreferrer"
-              >reference</a
-            >
-          </p>
-        </div>
-        <details id="default-transcript" class="default-transcript">
-          <summary>Reference transcript</summary>
-          <pre id="default-transcript-text" class="transcript-text">Loading transcript…</pre>
-        </details>
-        <div id="cached-results"><p class="empty">Loading saved baseline…</p></div>
-      </section>
-
-      <section class="panel" aria-labelledby="runs-heading">
-        <div class="panel__head panel__head--row">
-          <h2 id="runs-heading">Runs</h2>
-          <p class="panel__hint">Newest first · refreshed every 2 seconds.</p>
-        </div>
-        <div id="jobs"></div>
-      </section>
+        <section class="panel" aria-labelledby="runs-heading">
+          <div class="panel__head panel__head--row">
+            <h2 id="runs-heading">Runs</h2>
+            <p class="panel__hint">Newest first · refreshed every 2 seconds.</p>
+          </div>
+          <div id="jobs"></div>
+        </section>
+      </div>
     </main>
 
     <script type="module" src="./app.ts"></script>

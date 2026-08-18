@@ -1,7 +1,7 @@
 """
-Speech-to-text accuracy + latency benchmark for the three implemented architectures.
+Speech-to-text accuracy + latency benchmark for the two implemented architectures.
 
-Runs a mono or dual-channel call through three STT pipelines, emits chronological
+Runs a mono or dual-channel call through both STT pipelines, emits chronological
 speaker turns, and scores the derived flat transcript against a reference:
 
   1. Azure Speech real-time  - classic `azure-cognitiveservices-speech` SDK
@@ -9,9 +9,6 @@ speaker turns, and scores the derived flat transcript against a reference:
      runs its own VAD and finalizes each utterance as audio streams in.
   2. MAI-Transcribe-1.5 real-time - Voice Live WebSocket, with
      `input_audio_transcription.model = "mai-transcribe"`.
-  3. MAI-Transcribe-1.5 batch - post-call VAD utterances sent concurrently to the
-     fast-transcription REST API. The model returns no usable whole-call phrase
-     timing, so utterance requests preserve the turn boundary needed downstream.
 
 Fair segmentation
 -----------------
@@ -30,15 +27,14 @@ Latency
 -------
 For all engines latency is *finalization lag*: the delay between the end of an
 utterance's audio and the arrival of its final transcript. That is measured the same
-way on both real-time paths, so the numbers are directly comparable. Architecture 3
-is reported as whole-call turnaround instead, since it has no per-utterance notion.
+way on both real-time paths, so the numbers are directly comparable.
 
 Note that MAI still pays a structural penalty in real time: it cannot return anything
 until an utterance closes, whereas the Speech SDK streams partial hypotheses while the
 speaker is still talking.
 
-All three architectures run concurrently, so a full pass costs roughly one call
-duration rather than three.
+Both architectures run concurrently, so a full pass costs roughly one call duration
+rather than two.
 
 Authentication uses Microsoft Entra ID (`DefaultAzureCredential`) because local
 (key-based) auth is disabled on the Speech resource.
@@ -56,7 +52,6 @@ import statistics
 import string
 import sys
 import time
-import tempfile
 import wave
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
@@ -64,7 +59,6 @@ from pathlib import Path
 
 import azure.cognitiveservices.speech as speechsdk
 import jiwer
-import requests
 import websockets
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
@@ -74,7 +68,6 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 try:
     from conversation import (
         AudioTiming,
-        MAX_CONVERSATION_ITEM_CHARS,
         Turn,
         finalize_turns,
         flatten_turns,
@@ -84,7 +77,6 @@ try:
 except ModuleNotFoundError:  # imported as `data.stt` by tests and other packages
     from data.conversation import (
         AudioTiming,
-        MAX_CONVERSATION_ITEM_CHARS,
         Turn,
         finalize_turns,
         flatten_turns,
@@ -92,12 +84,22 @@ except ModuleNotFoundError:  # imported as `data.stt` by tests and other package
         validate_channel_map,
     )
 
-RESOURCE_NAME = os.getenv("AZURE_SPEECH_RESOURCE_NAME", "speech-resource")
-SPEECH_ENDPOINT = os.getenv(
+def _env(name: str, default: str) -> str:
+    """Read a setting, treating an empty value as absent.
+
+    Containers commonly inject every declared name with "" for the ones nobody set;
+    without this the endpoints below would silently resolve to the empty string.
+    """
+    value = os.getenv(name)
+    return value if value not in (None, "") else default
+
+
+RESOURCE_NAME = _env("AZURE_SPEECH_RESOURCE_NAME", "speech-resource")
+SPEECH_ENDPOINT = _env(
     "AZURE_SPEECH_ENDPOINT",
     f"https://{RESOURCE_NAME}.cognitiveservices.azure.com",
 ).rstrip("/")
-RESOURCE_ID = os.getenv(
+RESOURCE_ID = _env(
     "AZURE_SPEECH_RESOURCE_ID",
     (
         "/subscriptions/<subscription-id>/resourceGroups/<resource-group>"
@@ -105,14 +107,13 @@ RESOURCE_ID = os.getenv(
     ),
 )
 
-VOICE_LIVE_URL = os.getenv(
+VOICE_LIVE_URL = _env(
     "AZURE_VOICE_LIVE_URL",
     (
         f"wss://{RESOURCE_NAME}.services.ai.azure.com/voice-live/realtime"
         "?api-version=2026-04-10&model=gpt-4.1"
     ),
 )
-FAST_TRANSCRIPTION_API_VERSION = "2025-10-15"
 
 CHUNK_SECONDS = 0.1  # audio is streamed to Voice Live in 100 ms frames
 
@@ -380,98 +381,6 @@ def find_utterances(pcm: bytes, sample_rate: int) -> list[tuple[float, float]]:
         total = (len(samples) // frame) * VAD_FRAME_SECONDS
         utterances.append((start_frame * VAD_FRAME_SECONDS, total))
     return utterances
-
-
-def _bounded_sentences(text: str) -> list[str]:
-    """Split display text at sentence/word boundaries under the PII item limit."""
-    sentences = [
-        sentence.strip()
-        for sentence in re.split(r"(?<=[.!?])\s+", text.strip())
-        if sentence.strip()
-    ]
-    bounded: list[str] = []
-    for sentence in sentences:
-        while len(sentence) > MAX_CONVERSATION_ITEM_CHARS:
-            cut = sentence.rfind(" ", 0, MAX_CONVERSATION_ITEM_CHARS + 1)
-            if cut <= 0:
-                cut = MAX_CONVERSATION_ITEM_CHARS
-            bounded.append(sentence[:cut].strip())
-            sentence = sentence[cut:].strip()
-        if sentence:
-            bounded.append(sentence)
-    return bounded
-
-
-def align_batch_text_to_vad(
-    text: str,
-    pcm: bytes,
-    sample_rate: int,
-    channel: int,
-    participant: str,
-) -> list[Turn]:
-    """Estimate phrase timing by aligning sentence word mass to local speech spans.
-
-    MAI batch currently returns one full-duration phrase per mono channel. Local VAD
-    supplies real speech intervals without changing the one-request transcription
-    architecture; sentence positions are mapped monotonically onto those intervals.
-    """
-    sentences = _bounded_sentences(text)
-    utterances = find_utterances(pcm, sample_rate)
-    if not sentences:
-        return []
-    if not utterances:
-        duration = len(pcm) / (sample_rate * 2)
-        utterances = [(0.0, duration)]
-
-    sentence_words = [max(1, len(sentence.split())) for sentence in sentences]
-    total_words = sum(sentence_words)
-    speech_durations = [max(0.001, end - start) for start, end in utterances]
-    total_speech = sum(speech_durations)
-
-    groups: dict[int, list[str]] = {}
-    words_seen = 0
-    utterance_index = 0
-    speech_seen = speech_durations[0]
-    for sentence, word_count in zip(sentences, sentence_words):
-        midpoint_ratio = (words_seen + word_count / 2) / total_words
-        target_speech = midpoint_ratio * total_speech
-        while (
-            utterance_index < len(utterances) - 1
-            and target_speech > speech_seen
-        ):
-            utterance_index += 1
-            speech_seen += speech_durations[utterance_index]
-        groups.setdefault(utterance_index, []).append(sentence)
-        words_seen += word_count
-
-    turns: list[Turn] = []
-    for index, parts in groups.items():
-        chunks: list[str] = []
-        current = ""
-        for part in parts:
-            candidate = f"{current} {part}".strip()
-            if current and len(candidate) > MAX_CONVERSATION_ITEM_CHARS:
-                chunks.append(current)
-                current = part
-            else:
-                current = candidate
-        if current:
-            chunks.append(current)
-
-        start, end = utterances[index]
-        span = (end - start) / len(chunks)
-        for chunk_index, chunk in enumerate(chunks):
-            chunk_start = start + chunk_index * span
-            turns.append(
-                Turn(
-                    participant_id=participant,
-                    channel=channel,
-                    offset=int(chunk_start * 10_000_000),
-                    duration=int(span * 10_000_000),
-                    text=chunk,
-                )
-            )
-    return turns
 
 
 # --------------------------------------------------------------------------- #
@@ -812,205 +721,12 @@ async def run_mai_realtime(
 
 
 # --------------------------------------------------------------------------- #
-# Architecture 3 STT - MAI-Transcribe-1.5 batch (post-call VAD utterances)
-# --------------------------------------------------------------------------- #
-def _post_with_retry(*args, **kwargs) -> requests.Response:
-    """Retry only transient transport, throttling, and server failures."""
-    last_error: Exception | None = None
-    for attempt in range(3):
-        try:
-            response = requests.post(*args, **kwargs)
-            if response.status_code != 429 and response.status_code < 500:
-                return response
-            last_error = requests.HTTPError(
-                f"Transient transcription response: {response.status_code}",
-                response=response,
-            )
-            delay = float(response.headers.get("Retry-After", 2**attempt))
-            response.close()
-        except (requests.ConnectionError, requests.Timeout) as error:
-            last_error = error
-            delay = 2**attempt
-
-        files = kwargs.get("files", {})
-        for value in files.values():
-            if isinstance(value, tuple) and len(value) > 1 and hasattr(value[1], "seek"):
-                value[1].seek(0)
-        if attempt < 2:
-            time.sleep(delay)
-
-    assert last_error is not None
-    raise last_error
-
-
-def _run_mai_batch_clip(
-    token: str,
-    pcm: bytes,
-    sample_rate: int,
-    channel: int,
-    participant: str,
-) -> tuple[list[Turn], float, bool]:
-    temporary = tempfile.TemporaryDirectory()
-    audio_path = Path(temporary.name) / f"channel-{channel}.wav"
-    audio_path.write_bytes(wav_bytes(pcm, sample_rate))
-    url = (
-        f"{SPEECH_ENDPOINT}/speechtotext/transcriptions:transcribe"
-        f"?api-version={FAST_TRANSCRIPTION_API_VERSION}"
-    )
-    definition = {
-        "locales": ["en"],
-        "enhancedMode": {
-            "enabled": True,
-            "model": "mai-transcribe-1.5",
-            "transcribeStyle": "verbatim",
-        },
-    }
-
-    with audio_path.open("rb") as audio:
-        files = {
-            "audio": (audio_path.name, audio, "audio/wav"),
-            "definition": (None, json.dumps(definition), "application/json"),
-        }
-        start = time.perf_counter()
-        response = _post_with_retry(
-            url, headers={"Authorization": f"Bearer {token}"}, files=files, timeout=900
-        )
-        latency = time.perf_counter() - start
-    temporary.cleanup()
-
-    response.raise_for_status()
-    payload = response.json()
-    phrases = [phrase for phrase in payload.get("phrases", []) if phrase.get("text")]
-    needs_estimated_timing = not phrases or any(
-        len(phrase["text"]) > MAX_CONVERSATION_ITEM_CHARS for phrase in phrases
-    )
-    if needs_estimated_timing:
-        text = " ".join(
-            phrase["text"] for phrase in payload.get("combinedPhrases", [])
-        ) or " ".join(phrase["text"] for phrase in phrases)
-        turns = align_batch_text_to_vad(
-            text, pcm, sample_rate, channel, participant
-        )
-    else:
-        turns = [
-            Turn(
-                participant_id=participant,
-                channel=channel,
-                offset=int(phrase.get("offsetMilliseconds", 0)) * 10_000,
-                duration=int(phrase.get("durationMilliseconds", 0)) * 10_000,
-                text=phrase["text"],
-            )
-            for phrase in phrases
-        ]
-    return turns, latency, needs_estimated_timing
-
-
-def _run_mai_batch_channel(
-    token: str,
-    pcm: bytes,
-    sample_rate: int,
-    channel: int,
-    participant: str,
-) -> tuple[list[Turn], float, int, list[float]]:
-    """Transcribe post-call VAD utterances concurrently to preserve real turn timing."""
-    utterances = find_utterances(pcm, sample_rate)
-    start = time.perf_counter()
-
-    def transcribe(
-        index: int, bounds: tuple[float, float]
-    ) -> tuple[Turn | None, float]:
-        utterance_start, utterance_end = bounds
-        byte_start = int(utterance_start * sample_rate) * 2
-        byte_end = int(utterance_end * sample_rate) * 2
-        clip_turns, api_latency, _ = _run_mai_batch_clip(
-            token,
-            pcm[byte_start:byte_end],
-            sample_rate,
-            channel,
-            participant,
-        )
-        text = flatten_turns(clip_turns)
-        if not text:
-            return None, api_latency
-        return (
-            Turn(
-                participant_id=participant,
-                channel=channel,
-                offset=int(utterance_start * 10_000_000),
-                duration=int((utterance_end - utterance_start) * 10_000_000),
-                text=text,
-            ),
-            api_latency,
-        )
-
-    with ThreadPoolExecutor(max_workers=min(4, max(1, len(utterances)))) as pool:
-        futures = [
-            pool.submit(transcribe, index, bounds)
-            for index, bounds in enumerate(utterances)
-        ]
-        outputs = [future.result() for future in futures]
-    turns = [turn for turn, _ in outputs if turn is not None]
-    return (
-        turns,
-        time.perf_counter() - start,
-        len(utterances),
-        [api_latency for _, api_latency in outputs],
-    )
-
-
-def run_mai_batch(
-    token: str,
-    channels: list[bytes],
-    sample_rate: int,
-    channel_map: dict[int, str],
-    audio_seconds: float = 0.0,
-) -> tuple[list[Turn], dict]:
-    with ThreadPoolExecutor(max_workers=len(channels)) as pool:
-        futures = [
-            pool.submit(
-                _run_mai_batch_channel,
-                token,
-                pcm,
-                sample_rate,
-                channel,
-                channel_map[channel],
-            )
-            for channel, pcm in enumerate(channels)
-        ]
-        outputs = [future.result() for future in futures]
-    turns = finalize_turns(turn for output in outputs for turn in output[0])
-    latency = max(output[1] for output in outputs)
-    api_latencies = [value for output in outputs for value in output[3]]
-    metrics = {
-        "mode": "batch (post-call VAD utterances)",
-        "wall_seconds": latency,
-        "turnaround_seconds": latency,
-        # Batch cannot start until the caller hangs up, so from the moment the call
-        # begins the transcript is only ready after the full call plus turnaround.
-        "time_to_full_transcript": audio_seconds + latency,
-        "finalization_lag": lag_stats([]),
-        "segments": len(turns),
-        "channel_sessions": len(channels),
-        "utterance_requests": sum(output[2] for output in outputs),
-        "api_request_latency": lag_stats(api_latencies),
-        "request_concurrency_per_channel": 4,
-        "max_concurrent_requests": len(channels) * 4,
-        "wall_includes_local_orchestration": True,
-        "timing_estimated": False,
-    }
-    return turns, metrics
-
-
-# --------------------------------------------------------------------------- #
 # Orchestration
 # --------------------------------------------------------------------------- #
 ENGINES = {
     "architecture-1-azure-speech-realtime": "1. Azure Speech real-time (SDK)",
     "architecture-2-mai-transcribe-realtime": (
         "2. MAI-Transcribe-1.5 real-time (Voice Live)"
-    ),
-    "architecture-3-mai-transcribe-batch": (
-        "3. MAI-Transcribe-1.5 batch (VAD utterances)"
     ),
 }
 
@@ -1020,11 +736,10 @@ async def _run_all(
     channels: list[bytes],
     sample_rate: int,
     channel_map: dict[int, str],
-    audio_seconds: float = 0.0,
     on_progress=None,
     on_result=None,
 ) -> dict:
-    """Run all three architectures concurrently - they are independent sessions."""
+    """Run both architectures concurrently - they are independent sessions."""
     loop = asyncio.get_running_loop()
 
     async def tracked(key, awaitable):
@@ -1044,22 +759,8 @@ async def _run_all(
             on_result(key, ENGINES[key], result)
         return result
 
-    async def post_call_batch():
-        # The file is available immediately in a benchmark, but production batch
-        # cannot begin until the call has ended.
-        await asyncio.sleep(audio_seconds)
-        return await loop.run_in_executor(
-            None,
-            run_mai_batch,
-            token,
-            channels,
-            sample_rate,
-            channel_map,
-            audio_seconds,
-        )
-
     keys = list(ENGINES)
-    speech, mai_realtime, mai_batch = await asyncio.gather(
+    speech, mai_realtime = await asyncio.gather(
         tracked(
             keys[0],
             loop.run_in_executor(
@@ -1075,12 +776,8 @@ async def _run_all(
             keys[1],
             run_mai_realtime(token, channels, sample_rate, channel_map),
         ),
-        tracked(
-            keys[2],
-            post_call_batch(),
-        ),
     )
-    outcomes = [speech, mai_realtime, mai_batch]
+    outcomes = [speech, mai_realtime]
     return {key: (ENGINES[key], outcome) for key, outcome in zip(keys, outcomes)}
 
 
@@ -1091,7 +788,7 @@ def run_benchmark(
     channel_map: dict[int | str, str] | None = None,
     on_engine_result=None,
 ) -> dict:
-    """Benchmark all three architectures against `audio_path`.
+    """Benchmark both architectures against `audio_path`.
 
     `reference_path` is optional: without it the transcripts and latency metrics are
     still produced, but there is no reference to score word error rate against.
@@ -1165,7 +862,6 @@ def run_benchmark(
             channels,
             sample_rate,
             normalized_map,
-            audio_seconds,
             on_progress,
             finalize_engine,
         )
@@ -1259,18 +955,15 @@ def main() -> None:
             continue
         m = entry["metrics"]
         lag = m["finalization_lag"]
-        if lag["mean"] is None:
-            latency = f"{m['turnaround_seconds']:>9.1f}s{'batch':>9}"
-        else:
-            latency = f"{lag['mean']:>9.2f}s{lag['p95']:>8.2f}s"
+        latency = f"{lag['mean']:>9.2f}s{lag['p95']:>8.2f}s"
         print(
             f"{entry['label']:<46}{m['wer']:>7.2%}{m['accuracy']:>10.2%}"
             f"{latency}{m['time_to_full_transcript']:>17.1f}s"
         )
     print(
         "\n'Transcript ready' = seconds from the start of the call until the full "
-        "transcript exists.\nReal-time overlaps the call; batch cannot start until "
-        "the caller hangs up."
+        "transcript exists.\nBoth engines overlap the call, so it lands within about "
+        "a second of the caller hanging up."
     )
 
     print()

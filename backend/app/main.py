@@ -1,7 +1,7 @@
 """HTTP API for the STT benchmark suite.
 
-Upload a call recording and/or its reference transcript, then run the three
-implemented end-to-end architectures from the README against it.
+Upload a call recording and/or its reference transcript, then run both
+end-to-end architectures from the README against it.
 """
 
 import shutil
@@ -37,10 +37,6 @@ ARCHITECTURE_DIAGRAMS = {
         REPO_ROOT
         / "frontend/public/architecture/architecture-2-mai-realtime-deepseek.html"
     ),
-    "architecture-3-mai-batch-deepseek": (
-        REPO_ROOT
-        / "frontend/public/architecture/architecture-3-mai-batch-deepseek.html"
-    ),
 }
 
 
@@ -48,6 +44,7 @@ ARCHITECTURE_DIAGRAMS = {
 def _startup() -> None:
     ensure_dirs()
     uploads.ensure_builtins()
+    jobs.restore_completed()
 
 
 def _spool(upload: UploadFile, directory: Path) -> Path:
@@ -66,7 +63,7 @@ def health() -> dict:
 
 @app.get("/api/uploads")
 def list_uploads() -> list[dict]:
-    return uploads.list_user_uploads()
+    return uploads.list_visible()
 
 
 @app.get("/api/benchmark/default")
@@ -164,6 +161,15 @@ def delete_upload(upload_id: str) -> None:
         raise HTTPException(400, "The built-in mock call cannot be deleted.")
     if not uploads.delete(upload_id):
         raise HTTPException(404, "No such upload.")
+
+
+@app.get("/api/uploads/{upload_id}/audio")
+def get_upload_audio(upload_id: str) -> FileResponse:
+    """Stream an uploaded recording back, so the UI can play the call it scored."""
+    path = uploads.audio_path(upload_id)
+    if path is None or not path.is_file():
+        raise HTTPException(404, "This upload has no audio.")
+    return FileResponse(path, media_type="audio/wav", filename=path.name)
 
 
 @app.get("/api/uploads/{upload_id}/transcript", response_class=PlainTextResponse)

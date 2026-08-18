@@ -256,6 +256,9 @@ export const api = {
   getDefaultTranscript: () =>
     requestText("/api/benchmark/default/transcript"),
 
+  getUploadTranscript: (id: string) =>
+    requestText(`/api/uploads/${encodeURIComponent(id)}/transcript`),
+
   startDefaultBenchmark: () =>
     request<Job>("/api/benchmark", { method: "POST" }),
 

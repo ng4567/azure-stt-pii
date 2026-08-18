@@ -1,6 +1,6 @@
 """Benchmark jobs: run `data/stt.py` against an upload, in the background.
 
-A run streams the audio to two of the three architectures at 1x, so it takes about
+A run streams the audio to both architectures at 1x, so it takes about
 as long as the call itself. Jobs are therefore started, polled, and read back rather
 than answered inline on the request.
 """
@@ -16,7 +16,6 @@ from pathlib import Path
 
 from backend.arch1 import Architecture1Adapter
 from backend.arch2 import Architecture2Adapter
-from backend.arch3 import Architecture3Adapter
 from backend.architecture import ARCHITECTURE_LABELS
 from backend.contracts import failed_architecture
 from backend.pii_accuracy import load_ground_truth, score_architectures
@@ -40,7 +39,6 @@ _pool = ThreadPoolExecutor(
 ARCHITECTURE_FACTORIES = {
     "architecture-1-azure-language": Architecture1Adapter,
     "architecture-2-mai-realtime-deepseek": Architecture2Adapter,
-    "architecture-3-mai-batch-deepseek": Architecture3Adapter,
 }
 ENGINE_ARCHITECTURES = {
     factory.stt_engine_key: architecture_id
@@ -132,6 +130,64 @@ def list_all() -> list[dict]:
     return sorted(jobs, key=lambda job: job["created_at"], reverse=True)
 
 
+def restore_completed() -> None:
+    """Restore the latest completed result for each user upload after a restart.
+
+    Job progress is process-local, but successful reports are durable. Rehydrate
+    those reports so a customer's completed call remains selectable in the UI
+    after Docker or the API process restarts.
+    """
+    restored: dict[str, dict] = {}
+    for upload in uploads.list_all():
+        if upload.get("builtin"):
+            # The default endpoint already serves the latest persisted built-in run.
+            continue
+        result_path = uploads.upload_dir(upload["id"]) / RESULT_NAME
+        if not result_path.is_file():
+            continue
+
+        report = json.loads(result_path.read_text(encoding="utf-8"))
+        finished_at = datetime.fromtimestamp(
+            result_path.stat().st_mtime, timezone.utc
+        ).isoformat()
+        job_id = f"saved-{upload['id']}"
+        restored[job_id] = {
+            "id": job_id,
+            "upload_id": upload["id"],
+            "status": "succeeded",
+            "created_at": upload["created_at"],
+            "started_at": upload["created_at"],
+            "finished_at": finished_at,
+            "scored": bool(report.get("scored")),
+            "engines": {
+                key: (
+                    "done"
+                    if key in report.get("engines", {})
+                    and not report["engines"][key].get("error")
+                    else "failed"
+                )
+                for key in stt.ENGINES
+            },
+            "engine_labels": dict(stt.ENGINES),
+            "architectures": {
+                key: (
+                    "done"
+                    if report.get("architectures", {}).get(key, {}).get("status")
+                    == "succeeded"
+                    else "failed"
+                )
+                for key in ARCHITECTURE_LABELS
+            },
+            "architecture_labels": dict(ARCHITECTURE_LABELS),
+            "result": report,
+            "error": None,
+        }
+
+    with _lock:
+        for job_id, job in restored.items():
+            _jobs.setdefault(job_id, job)
+
+
 def cached_default() -> dict:
     """Load the latest saved default run without starting billable Azure work."""
     persisted_result = uploads.upload_dir(uploads.DEFAULT_UPLOAD_ID) / RESULT_NAME
@@ -162,7 +218,11 @@ def _run(job_id: str, audio: Path, transcript: Path | None) -> None:
             thread_name_prefix="architecture",
         ) as architecture_pool:
             def start_downstream(engine_key: str, source: dict) -> None:
-                architecture_id = ENGINE_ARCHITECTURES[engine_key]
+                # An STT report may carry engines with no downstream architecture
+                # (a retired one, or a cached report from an older build).
+                architecture_id = ENGINE_ARCHITECTURES.get(engine_key)
+                if architecture_id is None:
+                    return
                 architecture_futures[architecture_id] = architecture_pool.submit(
                     run_architecture,
                     architecture_id,

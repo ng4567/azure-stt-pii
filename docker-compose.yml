@@ -8,9 +8,21 @@ services:
       - "127.0.0.1:8000:8000"
     environment:
       ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+      # The repository-root .env is not copied into the image, so every name the
+      # README documents has to be forwarded explicitly. Anything missing here
+      # silently falls back to a placeholder resource name and the run fails
+      # against an endpoint that does not exist.
       AZURE_LANGUAGE_ENDPOINT: ${AZURE_LANGUAGE_ENDPOINT:-}
+      AZURE_LANGUAGE_API_VERSION: ${AZURE_LANGUAGE_API_VERSION:-}
       AZURE_FOUNDRY_ENDPOINT: ${AZURE_FOUNDRY_ENDPOINT:-}
       AZURE_FOUNDRY_DEPLOYMENT: ${AZURE_FOUNDRY_DEPLOYMENT:-}
+      AZURE_FOUNDRY_API_VERSION: ${AZURE_FOUNDRY_API_VERSION:-}
+      AZURE_FOUNDRY_MAX_ATTEMPTS: ${AZURE_FOUNDRY_MAX_ATTEMPTS:-}
+      AZURE_SPEECH_RESOURCE_NAME: ${AZURE_SPEECH_RESOURCE_NAME:-}
+      AZURE_SPEECH_ENDPOINT: ${AZURE_SPEECH_ENDPOINT:-}
+      AZURE_SPEECH_RESOURCE_ID: ${AZURE_SPEECH_RESOURCE_ID:-}
+      AZURE_VOICE_LIVE_URL: ${AZURE_VOICE_LIVE_URL:-}
+      AZURE_REQUEST_TIMEOUT_SECONDS: ${AZURE_REQUEST_TIMEOUT_SECONDS:-}
     volumes:
       # DefaultAzureCredential falls through to the Azure CLI, so the container
       # reuses the profile from `az login` on the host. Mounted read-write so the

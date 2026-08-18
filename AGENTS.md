@@ -1,17 +1,23 @@
 # AGENTS.md
 
-Cost and latency benchmark for speech-to-text plus PII redaction and summarization.
-See `README.md` for the architectures being compared.
+Cost and latency benchmark for speech-to-text plus PII redaction and summarization,
+presented as a migration business case off the legacy Azure stack. See `README.md`
+for the two architectures being compared.
 
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `data/stt.py` | The benchmark itself. Runs all three STT architectures concurrently against a recording and scores them against a reference transcript. |
+| `data/stt.py` | The benchmark itself. Runs both STT architectures concurrently against a recording and scores them against a reference transcript. |
 | `data/tts.py` | Generates the mock call recording (`data/mock-call.wav`) from `data/mock-call-transcript.txt` using MAI-Voice-2. |
-| `data/*.txt`, `data/*.json` | Mock call fixtures and the last benchmark results. |
+| `data/*.txt`, `data/*.json` | Mock call fixtures and the last benchmark results. Files matching `*architecture-3*` are a retired batch variant, kept as a historical record and referenced by nothing. |
+| `data/synthetic-call-corpus/`, `data/generate_synthetic_call_corpus.py` | Deterministic, PII-safe 100-call analytics corpus for the Fabric demo. Unrelated to the STT benchmark. |
+| `data/load_corpus_to_warehouse.py`, `data/eval_data_agent.py` | Seed the corpus into a Fabric Warehouse, and score the Data Agent's answers against hand-written SQL baselines. |
 | `backend/app/` | FastAPI service wrapping the benchmark: uploads, audio normalization, background jobs, results. |
 | `frontend/` | TypeScript UI served by Bun. |
+| `frontend/public/architecture/build_diagrams.py` | Generates the two architecture diagram pages. Edit it, not the generated HTML. |
+| `infra/` | Foundry resource + DeepSeek deployment (`main.bicep`). |
+| `infra/customer/` | The downstream analytics blueprint: Fabric capacity, Oracle schema, Mirroring prerequisites, the governed semantic model, and the Data Agent. |
 
 ## Frontend
 
@@ -27,14 +33,21 @@ Today the UI can:
 - run the checked-in mock call out of the box: `data/mock-call.wav` and
   `data/mock-call-transcript.txt` are seeded on startup as a built-in, non-deletable
   upload, so the benchmark is runnable without uploading anything,
-- upload audio and/or a reference transcript,
-- transcribe uploaded audio through all three architectures (wired to
+- upload audio and, optionally, a reference transcript,
+- transcribe uploaded audio through both architectures (wired to
   `stt.run_benchmark`), scoring word error rate when a reference transcript is
   present,
 - poll a run and show per-architecture latency, accuracy, and transcripts.
 
-It is built to grow into the full benchmark suite front end: PII redaction and
-summarization stages, and cost comparison, are expected to surface here too.
+It has three views. **Business case** is the default and the seller-facing one: the
+retirement hook, the measured deltas, a projection driven by three discount inputs
+(Azure AI Speech, Azure AI Language, Foundry model) plus call volume, and the upload
+form. **Call evidence** links every artifact back to its file in this repository.
+**Technical details** keeps the full measured tables and the run history.
+
+Every view reports on one *selected recording* (`frontend/src/source.ts`): the built-in
+sample call, or any completed run of an uploaded one. The source bar names it on every
+view, and a finished run is selected automatically.
 
 ## Rules
 
@@ -54,6 +67,19 @@ summarization stages, and cost comparison, are expected to surface here too.
   disabled on the Speech resource. The backend container gets credentials from a
   mounted Azure CLI profile.
 - Use `bun` for the frontend, not `node`.
+- All unit prices and discounts live in `frontend/src/pricing.ts`; there is no pricing
+  code in `backend/` or `data/`. Never restate a discount rate in prose — derive the
+  wording from the settings, or it will lie the first time someone moves a slider.
+- The app must always be explicit about *which* recording it is reporting on. Anything
+  that reads a report takes it from the selected source, never from the built-in one
+  directly, and repository links are shown only for the built-in call — they describe
+  files that exist, and a user's own upload has none.
+- A saved benchmark report can contain architectures and engines that no longer exist.
+  Everything the UI renders is filtered through the allow-lists in
+  `frontend/src/catalog.ts`; do not sort report keys without filtering them first.
+- The architecture diagram pages are generated. Edit
+  `frontend/public/architecture/build_diagrams.py` and re-run it from the repository
+  root; the shared Fabric analytics tail is written once and must stay that way.
 
 ## Commands
 
@@ -65,6 +91,12 @@ cd frontend && bun install && bun run dev   # UI on :3000
 # Benchmark the checked-in mock call directly
 uv run python data/stt.py
 
-# Frontend type checking
-cd frontend && bun run typecheck
+# Frontend type checking and tests
+cd frontend && bun run typecheck && bun test
+
+# Backend tests
+uv run --with pytest python -m pytest backend/tests
+
+# Regenerate the architecture diagrams
+python3 frontend/public/architecture/build_diagrams.py
 ```

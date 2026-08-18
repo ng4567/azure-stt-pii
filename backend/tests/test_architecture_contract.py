@@ -127,11 +127,7 @@ class ContractTests(unittest.TestCase):
             "wall_seconds": 1,
             "utterances_committed": 113,
         }})
-        batch = stt_stage({"metrics": {
-            "mode": "batch (post-call VAD utterances)",
-            "wall_seconds": 1,
-            "utterance_requests": 113,
-        }})
+        unknown = stt_stage({"metrics": {"mode": "something-new", "wall_seconds": 1}})
 
         self.assertEqual(
             azure["model"], "Azure Speech real-time transcription (Speech SDK)"
@@ -140,10 +136,10 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(
             realtime["model"], "MAI-Transcribe-1.5 real-time (113 VAD commits)"
         )
-        self.assertEqual(batch["provider"], "Azure AI Speech / Fast Transcription")
-        self.assertEqual(
-            batch["model"], "MAI-Transcribe-1.5 batch (113 VAD requests)"
-        )
+        # An unrecognized mode degrades to the raw mode string rather than
+        # inventing a provider or model name.
+        self.assertEqual(unknown["provider"], "Azure AI Speech")
+        self.assertEqual(unknown["model"], "something-new")
 
     def test_full_output_result_shape(self) -> None:
         entity = PiiEntity("Person", "Eleanor", "turn-0001", 5, 7)

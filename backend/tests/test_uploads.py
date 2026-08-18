@@ -10,6 +10,18 @@ from backend.app import main, uploads
 
 
 class UploadGroundTruthTests(unittest.TestCase):
+    def test_visible_uploads_exclude_retired_builtins(self) -> None:
+        records = [
+            {"id": uploads.DEFAULT_UPLOAD_ID, "builtin": True},
+            {"id": "retired-builtin", "builtin": True},
+            {"id": "customer-call", "builtin": False},
+        ]
+        with patch.object(uploads, "list_all", return_value=records):
+            self.assertEqual(
+                [record["id"] for record in uploads.list_visible()],
+                [uploads.DEFAULT_UPLOAD_ID, "customer-call"],
+            )
+
     def test_create_stores_annotation_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

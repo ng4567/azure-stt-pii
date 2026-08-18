@@ -170,14 +170,6 @@ def stt_stage(source_entry: Mapping[str, Any]) -> dict[str, Any]:
             if commits
             else "MAI-Transcribe-1.5 real-time"
         )
-    elif mode in {"batch (post-call VAD utterances)", "fast-transcription"}:
-        provider = "Azure AI Speech / Fast Transcription"
-        requests = int(metrics.get("utterance_requests", 0) or 0)
-        model = (
-            f"MAI-Transcribe-1.5 batch ({requests} VAD requests)"
-            if requests
-            else "MAI-Transcribe-1.5 batch"
-        )
     else:
         provider = "Azure AI Speech"
         model = mode

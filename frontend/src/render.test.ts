@@ -6,6 +6,7 @@ import type { Job, UploadMeta } from "./api.ts";
 import {
   describeUpload,
   renderCachedBenchmark,
+  renderCaveats,
   renderJobs,
   renderUploads,
 } from "./render.ts";
@@ -50,6 +51,7 @@ const succeededJob: Job = {
   engines: {
     "architecture-1-azure-speech-realtime": "done",
     "architecture-2-mai-transcribe-realtime": "done",
+    // A retired engine that a stale backend or saved job might still report.
     "architecture-3-mai-transcribe-batch": "done",
   },
   engine_labels: {
@@ -60,12 +62,10 @@ const succeededJob: Job = {
   architectures: {
     "architecture-1-azure-language": "done",
     "architecture-2-mai-realtime-deepseek": "done",
-    "architecture-3-mai-batch-deepseek": "done",
   },
   architecture_labels: {
     "architecture-1-azure-language": "1. Azure Speech + Azure Language",
     "architecture-2-mai-realtime-deepseek": "2. MAI real-time + DeepSeek",
-    "architecture-3-mai-batch-deepseek": "3. MAI batch + DeepSeek",
   },
   error: null,
   result: {
@@ -128,22 +128,21 @@ const succeededJob: Job = {
           },
         },
       },
-      "architecture-3-mai-transcribe-batch": {
-        label: "3. MAI-Transcribe-1.5 batch",
+      "architecture-2-mai-transcribe-realtime": {
+        label: "2. MAI-Transcribe-1.5 real-time",
         transcript: "Thank you for calling North Star Telecom.",
         metrics: {
-          mode: "batch (post-call)",
-          wall_seconds: 2.1,
-          turnaround_seconds: 2.1,
-          time_to_full_transcript: 62.1,
+          mode: "real-time (utterance micro-batch)",
+          wall_seconds: 60.2,
+          time_to_full_transcript: 60.2,
           finalization_lag: {
-            mean: null,
-            median: null,
-            p95: null,
-            max: null,
-            count: 0,
+            mean: 0.61,
+            median: 0.6,
+            p95: 0.8,
+            max: 0.84,
+            count: 11,
           },
-          segments: 1,
+          segments: 11,
           word_count: 168,
           wer: 0.0241,
           accuracy: 0.9759,
@@ -194,7 +193,7 @@ const succeededJob: Job = {
             provider: "Azure AI Language",
             model: "Conversation PII",
             wall_seconds: 1.2,
-            metrics: {},
+            metrics: { input_characters: 1_200 },
             error: null,
           },
           summarizer_endpoint: {
@@ -202,7 +201,7 @@ const succeededJob: Job = {
             provider: "Azure AI Language",
             model: "Conversational Summarization",
             wall_seconds: 1.5,
-            metrics: {},
+            metrics: { input_characters: 1_200, output_characters: 300 },
             error: null,
           },
         },
@@ -235,10 +234,10 @@ const succeededJob: Job = {
         stages: {
           stt: {
             status: "succeeded",
-            provider: "Azure AI Foundry",
+            provider: "Azure AI Speech / Voice Live",
             model: "MAI-Transcribe-1.5 real-time",
-            wall_seconds: 60.8,
-            metrics: { time_to_full_transcript: 60.8 },
+            wall_seconds: 60.2,
+            metrics: { time_to_full_transcript: 60.2 },
             error: null,
           },
           request_preparation: {
@@ -263,53 +262,9 @@ const succeededJob: Job = {
           },
         },
         latency: {
-          stt_seconds: 60.8,
-          downstream_seconds: 1.1,
-          end_to_end_seconds: 61.9,
-        },
-        error: null,
-      },
-      "architecture-3-mai-batch-deepseek": {
-        schema_version: "1.0",
-        architecture_id: "architecture-3-mai-batch-deepseek",
-        label: "3. MAI batch + DeepSeek",
-        status: "succeeded",
-        source: {
-          transcript: "The customer requested billing help.",
-          conversation: {
-            id: "clip-architecture-3",
-            language: "en",
-            modality: "transcript",
-            speakerAttributed: true,
-            channelMap: { "0": "REP", "1": "CUSTOMER" },
-            conversationItems: [],
-          },
-        },
-        redacted: null,
-        summary: "The [PERSON] requested billing help.",
-        entities: [],
-        stages: {
-          stt: {
-            status: "succeeded",
-            provider: "Azure AI Foundry",
-            model: "MAI-Transcribe-1.5 batch",
-            wall_seconds: 2.1,
-            metrics: { time_to_full_transcript: 62.1 },
-            error: null,
-          },
-          llm_api_call: {
-            status: "succeeded",
-            provider: "Azure AI Foundry",
-            model: "DeepSeek V4 Flash",
-            wall_seconds: 0.9,
-            metrics: { input_tokens: 850, output_tokens: 70 },
-            error: null,
-          },
-        },
-        latency: {
-          stt_seconds: 62.1,
-          downstream_seconds: 0.9,
-          end_to_end_seconds: 63,
+          stt_seconds: 60.2,
+          downstream_seconds: 1.2,
+          end_to_end_seconds: 61.4,
         },
         error: null,
       },
@@ -418,28 +373,29 @@ test("a succeeded job renders the metrics table and transcripts", () => {
   const text = node.textContent ?? "";
   expect(text).toContain("8.43%");
   expect(text).toContain("97.59%");
-  expect(text).toContain("62.1s"); // batch transcript-ready time
   expect(text).toContain("Scored against 166 reference words");
   expect(text).toContain("[1.00s] REP:");
-  expect(text).toContain("Estimated processing cost");
-  expect(text).toContain("Discounted total");
-  expect(text).toContain("90% on Azure Speech and MAI-Transcribe");
+  expect(text).toContain("Per-call cost breakdown");
+  expect(text).toContain("Your rate");
   expect(text).toContain("PII redaction accuracy");
   expect(text).toContain("End-to-end architecture latency");
   expect(text).toContain("62.00s");
   expect(text).toContain("Conversation PII endpoint");
+  expect(text).toContain("Pricing sources");
+  expect(text).toContain("Azure Language pricing");
+  expect(
+    node.querySelector<HTMLAnchorElement>(
+      'a[href="https://azure.microsoft.com/en-us/pricing/details/language/"]',
+    ),
+  ).not.toBeNull();
   expect(text).toContain("[PERSON] requested help.");
   expect(text).toContain("sanitized summary only");
   expect(text).toContain(
     "this architecture does not produce a redacted transcript or transcript entities",
   );
   expect(text).toContain("The [PERSON] requested account help.");
-  expect(text).toContain("The [PERSON] requested billing help.");
   expect(text).toContain("112 turns → 56 compact segments · 8,012 prompt characters");
   expect(text).toContain("900 input · 80 output tokens");
-  expect(text).not.toContain(
-    "until the sanitized summary and redacted transcript are ready",
-  );
   expect(text).toContain("96.00%");
   expect(text).toContain("24 / 1 / 1");
   expect(
@@ -448,7 +404,7 @@ test("a succeeded job renders the metrics table and transcripts", () => {
     "End-to-end architecture latency",
     "STT accuracy and latency",
     "PII redaction accuracy",
-    "Estimated processing cost",
+    "Per-call cost breakdown",
     "Engine transcripts",
   ]);
   const participantDetails = [...node.querySelectorAll("details")].find(
@@ -462,7 +418,6 @@ test("a succeeded job renders the metrics table and transcripts", () => {
     table.textContent?.includes("WER"),
   );
   expect(sttTable?.querySelectorAll("tbody tr").length).toBe(2);
-  expect(node.querySelectorAll("details").length).toBe(8);
 
   const architectureDetails = [...node.querySelectorAll(".architecture-detail")];
   const fullOutput = architectureDetails.find((details) =>
@@ -472,9 +427,68 @@ test("a succeeded job renders the metrics table and transcripts", () => {
     details.querySelector("summary")?.textContent?.includes("sanitized summary only")
   );
   expect(fullOutput?.textContent).toContain("Redacted transcript");
-  expect(summaryOnly).toHaveLength(2);
+  expect(summaryOnly).toHaveLength(1);
   expect(summaryOnly.every((details) => !details.textContent?.includes("Redacted transcript")))
     .toBe(true);
+});
+
+test("a retired architecture left in a saved report renders nowhere", () => {
+  const node = panel();
+  const stale = structuredClone(succeededJob.result!);
+  stale.engines["architecture-3-mai-transcribe-batch"] = {
+    label: "3. MAI-Transcribe-1.5 batch",
+    transcript: "Retired engine output.",
+    metrics: {
+      mode: "batch (post-call)",
+      wall_seconds: 2.1,
+      turnaround_seconds: 2.1,
+      time_to_full_transcript: 62.1,
+      finalization_lag: { mean: null, median: null, p95: null, max: null, count: 0 },
+      segments: 1,
+      word_count: 168,
+      // Deliberately the best score in the report: if it leaked in it would win.
+      wer: 0.001,
+      accuracy: 0.999,
+    },
+  };
+  stale.architectures!["architecture-3-mai-batch-deepseek"] = structuredClone(
+    stale.architectures!["architecture-2-mai-realtime-deepseek"]!,
+  );
+  stale.architectures!["architecture-3-mai-batch-deepseek"]!.label = "3. MAI batch + DeepSeek";
+  stale.pii_accuracy!["architecture-3-mai-batch-deepseek"] = {
+    ...stale.pii_accuracy!["architecture-1"]!,
+    f1: 0.999,
+  };
+
+  renderCachedBenchmark(node, stale);
+
+  const text = node.textContent ?? "";
+  expect(text).not.toContain("batch");
+  expect(text).not.toContain("Retired engine output.");
+  expect(text).not.toContain("0.10%");
+
+  // Two rows in every comparison table, and the surviving winner is architecture 2.
+  const sttTable = [...node.querySelectorAll("table")].find((table) =>
+    table.textContent?.includes("Mean lag"),
+  );
+  expect(sttTable?.querySelectorAll("tbody tr").length).toBe(2);
+  expect(node.querySelector(".kpi__value")).toBeDefined();
+
+  const piiTable = [...node.querySelectorAll("table")].find((table) =>
+    table.textContent?.includes("PII leakage"),
+  );
+  expect(piiTable?.querySelectorAll("tbody tr").length).toBe(1);
+});
+
+test("a retired engine key does not become a job badge", () => {
+  const node = panel();
+  renderJobs(node, [{ ...succeededJob, status: "running", result: null }]);
+
+  const badges = [...node.querySelectorAll(".job__head .badge")].map(
+    (badge) => badge.textContent ?? "",
+  );
+  expect(badges.some((badge) => badge.includes("MAI-Transcribe-1.5 batch"))).toBe(false);
+  expect(badges.some((badge) => badge.includes("MAI-Transcribe-1.5 real-time"))).toBe(true);
 });
 
 test("winner highlighting is recalculated for each new report", () => {
@@ -483,21 +497,22 @@ test("winner highlighting is recalculated for each new report", () => {
   renderCachedBenchmark(node, first);
 
   const sttTable = () => [...node.querySelectorAll("table")].find((table) =>
-    table.textContent?.includes("Primary latency"),
+    table.textContent?.includes("Mean lag"),
   );
   const row = (label: string) => [...(sttTable()?.querySelectorAll("tbody tr") ?? [])]
     .find((candidate) => candidate.textContent?.includes(label));
 
-  expect(row("MAI-Transcribe-1.5 batch")?.querySelectorAll(".winner").length).toBe(2);
+  // Architecture 2 starts ahead on WER, accuracy, mean lag, p95, and transcript ready.
+  expect(row("MAI-Transcribe-1.5 real-time")?.querySelectorAll(".winner").length).toBe(5);
 
   const updated = structuredClone(first);
   const azure = updated.engines["architecture-1-azure-speech-realtime"]!.metrics!;
-  azure.wer = 0.01;
-  azure.accuracy = 0.99;
+  azure.wer = 0.001;
+  azure.accuracy = 0.999;
   renderCachedBenchmark(node, updated);
 
-  expect(row("Azure Speech real-time")?.querySelectorAll(".winner").length).toBeGreaterThan(2);
-  expect(row("MAI-Transcribe-1.5 batch")?.querySelectorAll(".winner").length).toBe(0);
+  expect(row("Azure Speech real-time")?.querySelectorAll(".winner").length).toBe(2);
+  expect(row("MAI-Transcribe-1.5 real-time")?.querySelectorAll(".winner").length).toBe(3);
 });
 
 test("participant WER dropdown stays open across polling rerenders", () => {
@@ -528,7 +543,7 @@ test("cached default results render as an architecture comparison", () => {
     "End-to-end architecture latency",
   );
   expect(node.textContent).toContain("Azure Speech real-time");
-  expect(node.textContent).toContain("MAI-Transcribe-1.5 batch");
+  expect(node.textContent).toContain("MAI-Transcribe-1.5 real-time");
   expect(node.textContent).toContain("Scored against 166 reference words");
   expect(node.textContent).toContain("PII accuracy not scored");
 });
@@ -565,18 +580,18 @@ test("the scorecard leads with the winner of each benchmark dimension", () => {
   expect(kpis.map((kpi) => kpi.label)).toEqual([
     "Call length",
     "Fastest end to end",
-    "Lowest cost",
+    "Lowest cost per call",
     "Best WER",
     "Best PII F1",
   ]);
   expect(kpis[0]?.value).toBe("1m 0s");
-  // Architecture 2 finishes first, architecture 3 has the lowest WER.
-  expect(kpis[1]?.value).toBe("61.90s");
+  expect(kpis[1]?.value).toBe("61.40s");
   expect(kpis[1]?.meta).toBe("MAI real-time + DeepSeek");
   expect(kpis[2]?.value?.startsWith("$")).toBe(true);
-  expect(kpis[2]?.meta).toContain("discounted");
+  // Cost is keyed off the seller-facing profile name, not the backend label.
+  expect(kpis[2]?.meta).toBe("Modernized — MAI-Transcribe + Foundry + Fabric");
   expect(kpis[3]?.value).toBe("2.41%");
-  expect(kpis[3]?.meta).toBe("MAI-Transcribe-1.5 batch");
+  expect(kpis[3]?.meta).toBe("MAI-Transcribe-1.5 real-time");
   expect(kpis[4]?.value).toBe("96.00%");
   expect(kpis[4]?.meta).toBe("Azure Speech + Azure Language");
 });
@@ -605,6 +620,22 @@ test("PII rows resolve architecture labels from short report keys", () => {
   expect(firstCell?.querySelector(".arch-cell__index")?.textContent).toBe("1");
 });
 
+test("the discount note states the rates actually applied", () => {
+  const node = panel();
+  renderCachedBenchmark(node, succeededJob.result!, {
+    speechDiscount: 0.9,
+    azureLanguageDiscount: 0.7,
+    foundryLlmDiscount: 0.25,
+    monthlyCalls: 1_000,
+    averageCallMinutes: 8.4,
+  });
+
+  const text = node.textContent ?? "";
+  expect(text).toContain("90% off Azure AI Speech");
+  expect(text).toContain("70% off Azure AI Language");
+  expect(text).toContain("25% off Foundry model");
+});
+
 test("a running job announces itself as busy and shows progress", () => {
   const node = panel();
   const running: Job = {
@@ -616,7 +647,6 @@ test("a running job announces itself as busy and shows progress", () => {
     engines: {
       "architecture-1-azure-speech-realtime": "running",
       "architecture-2-mai-transcribe-realtime": "pending",
-      "architecture-3-mai-transcribe-batch": "pending",
     },
   };
   renderJobs(node, [running], new Date("2026-08-05T19:17:03.000Z").getTime());
@@ -642,7 +672,31 @@ test("a lone comparable row is never crowned the winner", () => {
 
   // Comparable tables keep their winners.
   const sttTable = [...node.querySelectorAll("table")].find((table) =>
-    table.textContent?.includes("Primary latency"),
+    table.textContent?.includes("Mean lag"),
   );
   expect(sttTable?.querySelectorAll(".winner").length).toBeGreaterThan(0);
+});
+
+test("backend error text is escaped rather than injected as markup", () => {
+  const node = panel();
+  renderJobs(node, [
+    {
+      ...succeededJob,
+      id: "escapejob001",
+      status: "failed",
+      result: null,
+      error: '<img src=x onerror="boom">',
+    },
+  ]);
+
+  expect(node.querySelector("img")).toBeNull();
+  expect(node.textContent).toContain('<img src=x onerror="boom">');
+});
+
+test("the caveats spell out what limits every figure", () => {
+  const node = renderCaveats();
+  const text = node.textContent ?? "";
+  expect(text).toContain("synthesized");
+  expect(text).toContain("list price");
+  expect(node.querySelectorAll("li").length).toBeGreaterThan(3);
 });

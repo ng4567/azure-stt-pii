@@ -13,7 +13,7 @@ from data.conversation import (
     serialize_conversation,
     validate_channel_map,
 )
-from data.stt import align_batch_text_to_vad, load_audio
+from data.stt import load_audio
 
 
 def write_pcm(path: Path, channels: int) -> None:
@@ -88,17 +88,6 @@ class ConversationTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             validate_channel_map({0: "speaker", 1: "speaker"}, 2)
-
-    def test_batch_text_is_aligned_into_pii_safe_turns(self) -> None:
-        pcm = array.array("h", [500] * 16_000 + [0] * 9_600).tobytes()
-        text = "First sentence. " * 100
-        turns = finalize_turns(
-            align_batch_text_to_vad(text, pcm, 16_000, 0, "REP")
-        )
-        self.assertGreater(len(turns), 1)
-        self.assertTrue(
-            all(len(turn.text) <= MAX_CONVERSATION_ITEM_CHARS for turn in turns)
-        )
 
 
 if __name__ == "__main__":

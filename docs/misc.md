@@ -24,9 +24,9 @@ These caveats matter when interpreting the table.
 
 - **Latency is finalization lag**: the delay between the end of an utterance's audio
   and the arrival of its final transcript, measured identically on both real-time
-  paths. Architecture 3 has no per-utterance notion, so it is reported as whole-call
-  turnaround, and its "transcript ready" figure includes the call duration it must
-  wait through first.
+  paths, so the two numbers are directly comparable. (The retired post-call variant
+  had no per-utterance notion and was reported as whole-call turnaround instead; see
+  `stt-results.md`.)
 - **Chunking is VAD-aligned only for MAI.** Architecture 1 receives one unbroken
   stream and the *service* does its own endpointing; nothing is clipped locally. The
   local VAD exists solely to give MAI equivalent utterance boundaries. Even then MAI

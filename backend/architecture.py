@@ -16,5 +16,4 @@ class ArchitectureAdapter(Protocol):
 ARCHITECTURE_LABELS = {
     "architecture-1-azure-language": "1. Azure Speech + Azure Language",
     "architecture-2-mai-realtime-deepseek": "2. MAI real-time + DeepSeek",
-    "architecture-3-mai-batch-deepseek": "3. MAI batch + DeepSeek",
 }

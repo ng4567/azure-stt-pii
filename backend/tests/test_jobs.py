@@ -12,7 +12,6 @@ from backend.contracts import failed_architecture
 ENGINE_KEYS = [
     "architecture-1-azure-speech-realtime",
     "architecture-2-mai-transcribe-realtime",
-    "architecture-3-mai-transcribe-batch",
 ]
 
 
@@ -71,19 +70,18 @@ class ArchitectureOrchestrationTests(unittest.TestCase):
         report = {"engines": {key: source_entry(key) for key in ENGINE_KEYS}}
         results = jobs.run_architectures(
             report,
-            [FakeAdapter(1, successful(1)), FakeAdapter(2, fail), FakeAdapter(3, successful(3))],
+            [FakeAdapter(1, successful(1)), FakeAdapter(2, fail)],
         )
 
-        self.assertEqual(set(results), {"architecture-1", "architecture-2", "architecture-3"})
+        self.assertEqual(set(results), {"architecture-1", "architecture-2"})
         self.assertEqual(results["architecture-1"]["status"], "succeeded")
         self.assertEqual(results["architecture-2"]["status"], "failed")
         self.assertIn("downstream unavailable", results["architecture-2"]["error"])
-        self.assertEqual(results["architecture-3"]["status"], "succeeded")
         for number, key in enumerate(ENGINE_KEYS, 1):
             self.assertIs(received[number], report["engines"][key])
 
     def test_downstream_adapters_run_concurrently_and_report_progress(self) -> None:
-        barrier = threading.Barrier(3, timeout=1)
+        barrier = threading.Barrier(2, timeout=1)
         states = []
         state_lock = threading.Lock()
 
@@ -103,12 +101,12 @@ class ArchitectureOrchestrationTests(unittest.TestCase):
         report = {"engines": {key: source_entry(key) for key in ENGINE_KEYS}}
         results = jobs.run_architectures(
             report,
-            [FakeAdapter(1, run), FakeAdapter(2, run), FakeAdapter(3, run)],
+            [FakeAdapter(1, run), FakeAdapter(2, run)],
             progress,
         )
 
         self.assertTrue(all(result["status"] == "succeeded" for result in results.values()))
-        for number in range(1, 4):
+        for number in range(1, 3):
             self.assertIn((f"architecture-{number}", "running"), states)
             self.assertIn((f"architecture-{number}", "done"), states)
 
@@ -218,13 +216,59 @@ class JobIntegrationTests(unittest.TestCase):
             ):
                 jobs._run("job", Path("audio.wav"), None)
 
-        self.assertEqual(downstream.call_count, 3)
+        self.assertEqual(downstream.call_count, len(jobs.ARCHITECTURE_FACTORIES))
         fallback.assert_not_called()
         results = jobs.get("job")["result"]["architectures"]
         self.assertEqual(list(results), list(jobs.ARCHITECTURE_FACTORIES))
         for architecture_id, result in results.items():
             factory = jobs.ARCHITECTURE_FACTORIES[architecture_id]
             self.assertEqual(result["source_label"], factory.stt_engine_key)
+
+    def test_an_engine_with_no_architecture_is_skipped_rather_than_crashing(self) -> None:
+        """A saved or stale STT report may still name a retired engine."""
+        report = {
+            "engines": {
+                key: source_entry(key)
+                for key in [*ENGINE_KEYS, "architecture-3-mai-transcribe-batch"]
+            }
+        }
+
+        def benchmark(*args, on_engine_result=None, **kwargs):
+            for key, entry in report["engines"].items():
+                on_engine_result(key, entry)
+            return report
+
+        def architecture(architecture_id, source, on_progress=None):
+            return {"architecture_id": architecture_id, "status": "succeeded"}
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            jobs._jobs["job"] = {
+                "id": "job",
+                "upload_id": "upload",
+                "status": "queued",
+                "engines": {key: "pending" for key in report["engines"]},
+                "architectures": {
+                    architecture_id: "pending"
+                    for architecture_id in jobs.ARCHITECTURE_FACTORIES
+                },
+            }
+            with (
+                patch.object(jobs.uploads, "load", return_value={"id": "upload", "channel_map": {}}),
+                patch.object(jobs.uploads, "upload_dir", return_value=output),
+                patch.object(jobs.uploads, "pii_ground_truth_path", return_value=None),
+                patch.object(jobs.stt, "run_benchmark", side_effect=benchmark),
+                patch.object(jobs, "run_architecture", side_effect=architecture) as downstream,
+                patch.object(jobs, "run_architectures"),
+            ):
+                jobs._run("job", Path("audio.wav"), None)
+
+        self.assertEqual(jobs.get("job")["status"], "succeeded")
+        self.assertEqual(downstream.call_count, len(jobs.ARCHITECTURE_FACTORIES))
+        self.assertEqual(
+            list(jobs.get("job")["result"]["architectures"]),
+            list(jobs.ARCHITECTURE_FACTORIES),
+        )
 
     def test_cached_default_prefers_latest_persisted_default_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -244,6 +288,67 @@ class JobIntegrationTests(unittest.TestCase):
                 patch.object(jobs, "CACHED_DEFAULT_RESULT", checked_in_path),
             ):
                 self.assertEqual(jobs.cached_default(), persisted)
+
+    def test_restore_completed_rehydrates_user_reports_after_restart(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            user_dir = root / "customer-call"
+            builtin_dir = root / "mock-call-stereo"
+            user_dir.mkdir()
+            builtin_dir.mkdir()
+            report = {
+                "scored": True,
+                "engines": {
+                    ENGINE_KEYS[0]: source_entry(ENGINE_KEYS[0]),
+                    ENGINE_KEYS[1]: {"error": "service unavailable"},
+                },
+                "architectures": {
+                    "architecture-1-azure-language": {"status": "succeeded"},
+                    "architecture-2-mai-realtime-deepseek": {"status": "failed"},
+                },
+            }
+            (user_dir / jobs.RESULT_NAME).write_text(
+                json.dumps(report), encoding="utf-8"
+            )
+            (builtin_dir / jobs.RESULT_NAME).write_text(
+                json.dumps(report), encoding="utf-8"
+            )
+            uploads = [
+                {
+                    "id": "customer-call",
+                    "created_at": "2026-08-18T10:00:00+00:00",
+                    "builtin": False,
+                },
+                {
+                    "id": "mock-call-stereo",
+                    "created_at": "2026-08-18T09:00:00+00:00",
+                    "builtin": True,
+                },
+            ]
+
+            with (
+                patch.object(jobs.uploads, "list_all", return_value=uploads),
+                patch.object(
+                    jobs.uploads,
+                    "upload_dir",
+                    side_effect=lambda upload_id: root / upload_id,
+                ),
+            ):
+                jobs.restore_completed()
+
+        restored = jobs.get("saved-customer-call")
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored["status"], "succeeded")
+        self.assertEqual(restored["engines"][ENGINE_KEYS[0]], "done")
+        self.assertEqual(restored["engines"][ENGINE_KEYS[1]], "failed")
+        self.assertEqual(
+            restored["architectures"]["architecture-1-azure-language"], "done"
+        )
+        self.assertEqual(
+            restored["architectures"]["architecture-2-mai-realtime-deepseek"],
+            "failed",
+        )
+        self.assertIsNone(jobs.get("saved-mock-call-stereo"))
 
 
 class ArchitectureApiTests(unittest.TestCase):

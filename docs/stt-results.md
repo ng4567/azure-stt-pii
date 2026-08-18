@@ -29,17 +29,23 @@ as a second frontend benchmark. One frontend action runs either uploaded audio, 
 default audio when no audio is supplied, or the default audio with an uploaded
 transcript-only reference.
 
-Three STT variants are run **concurrently**, so a full benchmark pass costs roughly
-one call duration rather than three.
+Two STT variants are run **concurrently**, so a full benchmark pass costs roughly
+one call duration rather than two.
 
-| Variant | Engine | Transport | Mode |
-| --- | --- | --- | --- |
-| 1 | Azure Speech (standard) | Speech SDK `SpeechRecognizer` | real-time, incremental |
-| 2 | MAI-Transcribe-1.5 | Voice Live WebSocket | real-time, utterance micro-batch |
-| 3 | MAI-Transcribe-1.5 | Fast-transcription REST | post-call VAD utterances |
+| Variant | Engine | Transport | Mode | Status |
+| --- | --- | --- | --- | --- |
+| 1 | Azure Speech (standard) | Speech SDK `SpeechRecognizer` | real-time, incremental | live |
+| 2 | MAI-Transcribe-1.5 | Voice Live WebSocket | real-time, utterance micro-batch | live |
+| 3 | MAI-Transcribe-1.5 | Fast-transcription REST | post-call VAD utterances | **retired** |
 
-These variants map to the end-to-end architectures in the README: variant 1 is
-Architecture 1, variant 2 is Architecture 2, and variant 3 is Architecture 3.
+Variants 1 and 2 map to Architectures 1 and 2 in the README.
+
+**Variant 3 was retired after these measurements were taken.** It is no longer
+implemented, benchmarked, or shown in the UI: it cost the same per call as variant 2,
+scored worse on WER, and delivered the transcript 16 seconds later, so it lost on
+every axis it was meant to win. Its results are kept below because they are the
+evidence for that decision, and because the fan-out finding is reusable. Every
+variant-3 row in this document is historical.
 
 ---
 
@@ -54,13 +60,13 @@ CUSTOMER on channel 1, and 113 channel-local VAD utterances.
 | --- | --- | --- | --- | --- | --- | --- |
 | 1. Azure Speech real-time | 5.36% | 94.64% | **0.76s** | **0.97s** | 504.72s | 85 |
 | 2. MAI real-time | **3.34%** | **96.66%** | 0.82s | 0.97s | **504.48s** | 112 |
-| 3. MAI post-call VAD utterances | 4.04% | 95.96% | 16.57s turnaround | n/a | 520.73s | 112 |
+| 3. MAI post-call VAD utterances *(retired)* | 4.04% | 95.96% | 16.57s turnaround | n/a | 520.73s | 112 |
 
 | Variant | REP WER | CUSTOMER WER |
 | --- | --- | --- |
 | Azure Speech real-time | 3.69% | 7.42% |
 | MAI real-time | 3.14% | **3.82%** |
-| MAI post-call | **2.03%** | 6.97% |
+| MAI post-call *(retired)* | **2.03%** | 6.97% |
 
 The structured result is persisted at
 `data/mock-call-stereo-stt-benchmark-results.json`, with one canonical conversation
@@ -81,7 +87,7 @@ request fan-out and 16.57s turnaround instead of the old 7.8s whole-file turnaro
 | --- | --- | --- | --- | --- | --- | --- |
 | 1. Azure Speech real-time | 5.66% | 94.34% | 0.77s | 1.04s | 506.0s | 73 |
 | 2. MAI-Transcribe-1.5 real-time | **2.93%** | **97.07%** | 0.80s | 0.91s | **505.9s** | 102 |
-| 3. MAI-Transcribe-1.5 batch | 4.04% | 95.96% | 7.8s turnaround | n/a | 513.6s | 1 |
+| 3. MAI-Transcribe-1.5 batch *(retired)* | 4.04% | 95.96% | 7.8s turnaround | n/a | 513.6s | 1 |
 
 Error breakdown against the 989-word reference:
 
@@ -96,7 +102,8 @@ classic Speech SDK recognizer at equivalent streaming latency, and is *more* acc
 when fed VAD-aligned utterances than when handed the whole call in one request.
 
 Raw metrics are persisted to `data/stt-benchmark-results.json`. Per-engine
-transcripts are written to `data/transcript-architecture-{1,2,3}-*.txt`.
+transcripts are written to `data/transcript-architecture-{1,2}-*.txt`; the
+`*architecture-3*` files are the retired variant's last output.
 
 ### Canonical turn output for downstream processing
 
@@ -141,9 +148,9 @@ For dual-channel input, channel identity replaces diarization:
 | 1 | CUSTOMER / customer |
 
 Azure Speech uses two concurrent recognizers. MAI Voice Live uses two concurrent
-WebSockets with independent VAD. MAI batch uses two concurrent mono requests because
-Microsoft's current feature matrix marks stereo channel separation unsupported for
-MAI-Transcribe. Results are merged by offset, and overlapping turns remain separate.
+WebSockets with independent VAD, because Microsoft's current feature matrix marks
+stereo channel separation unsupported for MAI-Transcribe. Results are merged by
+offset, and overlapping turns remain separate.
 
 Mono remains supported as an un-attributed baseline with one `speaker` participant,
 but it is explicitly marked `speakerAttributed: false` and should not feed a
@@ -410,7 +417,7 @@ the eastus2 catalog, but its `.delta` behavior was never actually tested.
 
 ```bash
 uv run python data/tts.py    # regenerates data/mock-call.wav - see warning below
-uv run python data/stt.py    # runs all three variants concurrently, ~9 minutes
+uv run python data/stt.py    # runs both live variants concurrently, ~9 minutes
 
 uv run python data/tts.py --stereo
 uv run python data/stt.py \
@@ -434,7 +441,7 @@ transcript is supplied.
 
 - `gpt-live-transcribe` has never been run - the only genuinely incremental option
   remains unmeasured.
-- Published batch turnaround is a single measured sample (16.57s in the current
+- (Retired variant) Published batch turnaround is a single measured sample (16.57s in the current
   cached run). No repeated-run averaging, variance, or confidence interval is
   reported.
 - No real call recordings have been tested; all conclusions rest on synthetic audio.

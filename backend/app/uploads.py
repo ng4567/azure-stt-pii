@@ -62,9 +62,14 @@ def list_all() -> list[dict]:
     return uploads
 
 
-def list_user_uploads() -> list[dict]:
-    """Return user inputs without exposing internal fixtures as benchmark choices."""
-    return [meta for meta in list_all() if not meta.get("builtin", False)]
+def list_visible() -> list[dict]:
+    """Return user uploads and only built-ins supported by this build."""
+    active_builtins = set(BUILTINS)
+    return [
+        meta
+        for meta in list_all()
+        if not meta.get("builtin") or meta["id"] in active_builtins
+    ]
 
 
 def create(
