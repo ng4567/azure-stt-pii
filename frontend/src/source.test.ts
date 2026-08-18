@@ -121,13 +121,15 @@ test("an unscored run says so rather than implying word error rate was measured"
   expect(sources[0]!.detail).toContain("no reference transcript");
 });
 
-test("the picker is disabled while the built-in call is the only recording", () => {
+test("a lone recording is named in prose and offers no picker", () => {
   const host = document.createElement("div");
   renderSourceBar(host, collectSources(report(504), [], []), BUILTIN_SOURCE_ID, {
     onSelect: () => {},
     onUploadRequest: () => {},
   });
-  expect(host.querySelector("select")?.hasAttribute("disabled")).toBe(true);
+  expect(host.querySelector("select")).toBeNull();
+  expect(host.querySelector(".sourcebar__name")?.textContent).toBe("Built-in sample call");
+  expect(host.querySelector(".sourcebar__detail")?.textContent).toContain("8m 24s");
   expect(host.querySelector("#source-upload")?.textContent?.trim()).toBe(
     "Attach an approved test call",
   );
@@ -143,7 +145,7 @@ test("selecting a different recording reports the choice", () => {
   });
 
   const select = host.querySelector("select")!;
-  expect(select.hasAttribute("disabled")).toBe(false);
+  expect(select.options.length).toBe(2);
   select.value = "job1";
   select.dispatchEvent(new DomEvent("change", { bubbles: true }));
   expect(chosen).toEqual(["job1"]);

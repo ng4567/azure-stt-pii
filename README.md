@@ -4,10 +4,12 @@ PII redaction, and summarization — measured on the same recording, and lands b
 same Fabric analytics estate.
 
 The frontend is the seller-facing front door: a **business case** view that projects the
-migration at the customer's own contract discounts and call volume, a **call evidence**
-view linking every transcript and the audio back to the files in this repository, and a
-**technical details** view with the full measured tables. Both cost views link each
-configured unit rate to its Microsoft pricing or model documentation.
+migration at the customer's own contract discounts and call volume, an **architectures**
+view with both stacks and their pipeline diagrams, a **post-call analytics** view for the
+Fabric blueprint, a **call evidence** view linking every transcript and the audio back to
+the files in this repository, and a **technical details** view with the full measured
+tables. Both cost views link each configured unit rate to its Microsoft pricing or model
+documentation.
 
 # Architecture 1 - Azure Speech + Azure AI Language (current state)
 
@@ -414,11 +416,12 @@ define a summary-safety score. The refreshed cached report therefore contains
 # Running it
 
 The app opens on the **business case** view, which reads the checked-in result and
-needs no Azure access. **Post-call analytics** explains the Oracle-to-Fabric
-architecture and gives sellers a customer-outcome talk track. **Call evidence** links
-the recording, the reference script, and both stacks' transcripts back to the files
-in `data/`. **Technical details** holds the measured tables and the run history;
-`#business`, `#analytics`, `#evidence`, and `#technical` deep-link to each.
+needs no Azure access. **Architectures** shows the two stacks and their pipeline
+diagrams. **Post-call analytics** explains the Oracle-to-Fabric architecture and gives
+sellers a customer-outcome talk track. **Call evidence** links the recording, the
+reference script, and both stacks' transcripts back to the files in `data/`.
+**Technical details** holds the measured tables and the run history; `#business`,
+`#architectures`, `#analytics`, `#evidence`, and `#technical` deep-link to each.
 
 ### Built-in call, or an approved test recording
 
@@ -427,8 +430,9 @@ at the top of the page. That is the built-in sample call until an approved test 
 finishes.
 
 To use another recording, open **Use the built-in call, or an approved test
-recording** on the business case and attach only synthetic or approved non-customer
-audio. Audio is the only required input:
+recording** at the foot of the business case — the **Attach an approved test call**
+button in the recording bar jumps there — and attach only synthetic or approved
+non-customer audio. Audio is the only required input:
 
 | Input | Required | What it buys |
 | --- | --- | --- |

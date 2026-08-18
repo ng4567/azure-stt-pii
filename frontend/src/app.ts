@@ -4,7 +4,11 @@
  * the two-second job poll never rebuilds an input someone is typing into.
  */
 import { api, type BenchmarkReport, type Job, type UploadMeta } from "./api.ts";
-import { renderBusinessCase, renderPricingResults } from "./business.ts";
+import {
+  renderArchitectureTabs,
+  renderBusinessCase,
+  renderPricingResults,
+} from "./business.ts";
 import {
   currentSettings,
   loadSettings,
@@ -70,15 +74,27 @@ const settledJobs = new Set<string>();
 /** `#evidence` / `#technical` select a view, so a link can point at one. */
 const VIEW_HASHES: Record<string, string> = {
   "#business": "view-business",
+  "#architectures": "view-architectures",
   "#analytics": "view-analytics",
   "#evidence": "view-evidence",
   "#technical": "view-technical",
 };
 
+/**
+ * Views that read nothing from the selected recording: the stack diagrams and the
+ * Fabric blueprint are static. Naming a recording above them would only suggest
+ * their figures follow it.
+ */
+const STATIC_VIEWS = new Set(["view-architectures", "view-analytics"]);
+
+/** The view last shown, so a genuine switch can start at the top of the new one. */
+let shownView: string | null = null;
+
 const views = setupViewTabs(
   el<HTMLElement>("view-tabs"),
   [
     el<HTMLElement>("view-business"),
+    el<HTMLElement>("view-architectures"),
     el<HTMLElement>("view-analytics"),
     el<HTMLElement>("view-evidence"),
     el<HTMLElement>("view-technical"),
@@ -86,6 +102,11 @@ const views = setupViewTabs(
   (panelId) => {
     const hash = Object.entries(VIEW_HASHES).find(([, id]) => id === panelId)?.[0];
     if (hash && location.hash !== hash) history.replaceState(null, "", hash);
+    sourceBar.hidden = STATIC_VIEWS.has(panelId);
+    // The tabs are pinned, so a switch can happen from deep in a long view; the new
+    // view should open at its top, not wherever the old one was scrolled to.
+    if (shownView !== null && shownView !== panelId) window.scrollTo({ top: 0 });
+    shownView = panelId;
   },
 );
 
@@ -97,6 +118,9 @@ function activateFromHash(): void {
 activateFromHash();
 window.addEventListener("hashchange", activateFromHash);
 
+// The stack cards double as the diagram tabs; they come from the catalog, so they
+// exist before any report has loaded.
+renderArchitectureTabs(el<HTMLElement>("architecture-tabs"));
 setupArchitectureTabs(
   el<HTMLElement>("architecture-tabs"),
   el<HTMLIFrameElement>("architecture-diagram-frame"),

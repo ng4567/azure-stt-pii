@@ -3,7 +3,8 @@
  *
  * Everything here is derived from the measured benchmark run and the seller's own
  * discounts. Where a claim is weaker than it looks — the latency one is — this
- * says so rather than rounding it up into a headline.
+ * says so rather than rounding it up into a headline. It opens with the scenario and
+ * why the conversation is happening now, then the saving, then what changes.
  */
 import type { BenchmarkReport } from "./api.ts";
 import {
@@ -17,6 +18,7 @@ import { renderCostChart } from "./chart.ts";
 import {
   escapeHtml,
   formatDelta,
+  formatDuration,
   formatMoney,
   formatPercent,
   formatSeconds,
@@ -42,28 +44,87 @@ function element(tag: string, className: string, html = ""): HTMLElement {
   return node;
 }
 
-/* ------------------------------------------------------------------- headline */
+/* -------------------------------------------------------------------- context */
 
+/**
+ * The scenario the numbers describe, and why the conversation is happening now.
+ * Two short items side by side, setting up the figures that follow.
+ */
 function renderRetirementNotice(): HTMLElement {
   return element(
     "aside",
     "notice notice--retirement",
-    `<h2>Why this conversation is happening now</h2>
+    `<span class="notice__kicker">Why now</span>
+     <h2>Azure AI Language conversation summarization retires on March&nbsp;31,&nbsp;2029</h2>
      <p>
-       Azure AI Language <strong>conversation summarization is scheduled to retire on
-       March&nbsp;31,&nbsp;2029</strong>, which puts a date on the current call-processing
-       stack. Anything built on it needs a successor before then.
+       That puts a date on the current call-processing stack: anything built on it
+       needs a successor before then.
        <a href="${RETIREMENT_URL}" target="_blank" rel="noreferrer">Microsoft Learn — summarization overview</a>
      </p>
      <p class="notice__aside">
-       That retirement covers the summarization feature specifically. Azure AI Speech
+       The retirement covers the summarization feature specifically. Azure AI Speech
        and the rest of Azure AI Language are not retiring on that date, and this page
        does not claim they are.
      </p>`,
   );
 }
 
-function renderHero(projection: Projection): HTMLElement {
+function renderScenario(): HTMLElement {
+  return element(
+    "article",
+    "scenario",
+    `<div class="scenario__intro">
+       <span class="scenario__eyebrow">The scenario</span>
+       <h2>Protect context during a live agent handoff</h2>
+       <p>
+         A customer is speaking with a call-center agent when the conversation needs
+         to move to another human agent. The audio is transcribed in real time, and PII
+         must be redacted before the transcript and summary become handoff context.
+       </p>
+     </div>
+     <ol class="scenario__flow" aria-label="Real-time call handoff flow">
+       <li>
+         <span class="scenario__step">Live call</span>
+         <strong>Customer + agent</strong>
+       </li>
+       <li>
+         <span class="scenario__step">In flight</span>
+         <strong>Transcribe + redact PII</strong>
+       </li>
+       <li>
+         <span class="scenario__step">Handoff</span>
+         <strong>Next human agent gets safe context</strong>
+       </li>
+     </ol>`,
+  );
+}
+
+function renderContext(): HTMLElement {
+  const strip = element("section", "context");
+  strip.setAttribute("aria-label", "The scenario, and why now");
+  strip.append(renderScenario(), renderRetirementNotice());
+  return strip;
+}
+
+/* ------------------------------------------------------------------- headline */
+
+/** "from 5.36% to 3.34%" — or nothing, when the run was not scored. */
+function werClause(report: BenchmarkReport): string {
+  const legacyWer = report.engines?.[ENGINE_LEGACY]?.metrics?.wer;
+  const modernWer = report.engines?.[ENGINE_MODERN]?.metrics?.wer;
+  if (typeof legacyWer !== "number" || typeof modernWer !== "number") return "";
+  const from = `<strong>${formatPercent(legacyWer)}</strong>`;
+  const to = `<strong>${formatPercent(modernWer)}</strong>`;
+  if (modernWer < legacyWer) {
+    return `, while cutting the transcription error rate from ${from} to ${to}`;
+  }
+  if (modernWer > legacyWer) {
+    return `, though the transcription error rate rises from ${from} to ${to}`;
+  }
+  return `, at the same transcription error rate (${to})`;
+}
+
+function renderHero(report: BenchmarkReport, projection: Projection): HTMLElement {
   const { legacy, modern, annualSaving, savingPercent, settings } = projection;
   const hero = element("section", "hero");
 
@@ -91,11 +152,13 @@ function renderHero(projection: Projection): HTMLElement {
     <div class="hero__body">
       <p class="hero__lede">
         Moving this workload from Azure Speech + Azure AI Language to MAI-Transcribe-1.5
-        with a Foundry model cuts the run rate from <strong>${formatMoney(legacy.annualNet)}</strong>
+        with a Foundry model ${annualSaving > 0 ? "cuts" : "moves"} the run rate from
+        <strong>${formatMoney(legacy.annualNet)}</strong>
         to <strong>${formatMoney(modern.annualNet)}</strong> a year${
-          savingPercent === null ? "" : ` — <strong>${Math.round(savingPercent * 100)}% less</strong>`
-        },
-        while cutting the transcription error rate by more than a third.
+          savingPercent === null || annualSaving <= 0
+            ? ""
+            : ` — <strong>${Math.round(savingPercent * 100)}% less</strong>`
+        }${werClause(report)}.
       </p>
       <p class="hero__note">
         Adjust the discounts below to your customer's contract. Every number on this
@@ -112,8 +175,14 @@ interface Delta {
   legacy: string;
   modern: string;
   change: string;
-  tone: "good" | "flat";
+  tone: "good" | "bad" | "flat";
   note: string;
+}
+
+/** Lower is better for every delta shown here; a change that rounds away is flat. */
+function toneFor(fraction: number): Delta["tone"] {
+  if (Math.round(Math.abs(fraction) * 100) === 0) return "flat";
+  return fraction < 0 ? "good" : "bad";
 }
 
 function deltas(report: BenchmarkReport, projection: Projection): Delta[] {
@@ -129,7 +198,7 @@ function deltas(report: BenchmarkReport, projection: Projection): Delta[] {
       legacy: formatUnitCost(legacy.perCallNet),
       modern: formatUnitCost(modern.perCallNet),
       change: formatDelta(change),
-      tone: "good",
+      tone: toneFor(change),
       note:
         `Transcription is the bulk of it: the modern engine lists at ` +
         `$${pricingRates.maiTranscribePerAudioHour.toFixed(2)} an audio hour ` +
@@ -140,12 +209,13 @@ function deltas(report: BenchmarkReport, projection: Projection): Delta[] {
   const legacyWer = report.engines?.[ENGINE_LEGACY]?.metrics?.wer;
   const modernWer = report.engines?.[ENGINE_MODERN]?.metrics?.wer;
   if (typeof legacyWer === "number" && typeof modernWer === "number") {
+    const change = legacyWer > 0 ? (modernWer - legacyWer) / legacyWer : 0;
     items.push({
       label: "Word error rate",
       legacy: formatPercent(legacyWer),
       modern: formatPercent(modernWer),
-      change: formatDelta((modernWer - legacyWer) / legacyWer),
-      tone: "good",
+      change: formatDelta(change),
+      tone: toneFor(change),
       note: "Fewer transcription errors means fewer missed entities downstream, and a summary built on what was actually said.",
     });
   }
@@ -153,26 +223,26 @@ function deltas(report: BenchmarkReport, projection: Projection): Delta[] {
   const legacyLatency = report.architectures?.[ARCH_LEGACY]?.latency;
   const modernLatency = report.architectures?.[ARCH_MODERN]?.latency;
   if (legacyLatency && modernLatency) {
+    const downstream =
+      (modernLatency.downstream_seconds - legacyLatency.downstream_seconds) /
+      legacyLatency.downstream_seconds;
     items.push({
       label: "Work after the transcript",
       legacy: formatSeconds(legacyLatency.downstream_seconds),
       modern: formatSeconds(modernLatency.downstream_seconds),
-      change: formatDelta(
-        (modernLatency.downstream_seconds - legacyLatency.downstream_seconds) /
-          legacyLatency.downstream_seconds,
-      ),
-      tone: "good",
+      change: formatDelta(downstream),
+      tone: toneFor(downstream),
       note: "One model call replaces two Azure AI Language endpoints.",
     });
+    const endToEnd =
+      (modernLatency.end_to_end_seconds - legacyLatency.end_to_end_seconds) /
+      legacyLatency.end_to_end_seconds;
     items.push({
       label: "Total time to a PII-safe result",
       legacy: formatSeconds(legacyLatency.end_to_end_seconds),
       modern: formatSeconds(modernLatency.end_to_end_seconds),
-      change: formatDelta(
-        (modernLatency.end_to_end_seconds - legacyLatency.end_to_end_seconds) /
-          legacyLatency.end_to_end_seconds,
-      ),
-      tone: "flat",
+      change: formatDelta(endToEnd),
+      tone: toneFor(endToEnd),
       note: "Effectively a tie, and that is the honest read. Both transcribe live, so both finish within about a second of the caller hanging up — latency is a reason this migration is safe, not a reason to make it.",
     });
   }
@@ -187,7 +257,10 @@ function renderDeltas(report: BenchmarkReport, projection: Projection): HTMLElem
       "div",
       "panel__head",
       `<h2>What changes</h2>
-       <p class="panel__hint">Measured on the same 8m 24s call, transcribed by both stacks.</p>`,
+       <p class="panel__hint">Measured on the same ${escapeHtml(
+         formatDuration(report.audio_seconds),
+       )} call, transcribed by both stacks.
+       <a href="#architectures">See how each stack works</a></p>`,
     ),
   );
 
@@ -211,52 +284,46 @@ function renderDeltas(report: BenchmarkReport, projection: Projection): HTMLElem
   return section;
 }
 
-/* ---------------------------------------------------------------------- cards */
+/* --------------------------------------------------------------------- stacks */
 
-function renderComparisonCards(
-  report: BenchmarkReport,
-  projection: Projection,
-): HTMLElement {
-  const section = element("section", "panel panel--cards");
-  section.append(
-    element(
-      "div",
-      "panel__head",
-      `<h2>The two stacks</h2>
-       <p class="panel__hint">Both process the same stereo recording, with speaker identity taken from the channel rather than from billed diarization.</p>`,
-    ),
-  );
+/** Where each architecture's generated diagram page is served from. */
+function diagramUrl(architectureId: string): string {
+  return `/api/architecture-diagrams/${encodeURIComponent(architectureId)}`;
+}
 
-  const grid = element("div", "card-grid");
-  for (const architectureId of [ARCH_LEGACY, ARCH_MODERN]) {
-    const info = PROFILES[architectureId]!;
-    const entry = projection.architectures.find(
-      (item) => item.architectureId === architectureId,
-    );
-    const wer = report.engines?.[info.engineId]?.metrics?.wer;
-    const latency = report.architectures?.[architectureId]?.latency;
-
-    grid.append(
-      element(
-        "article",
-        `arch-card arch-card--${info.kind}`,
-        `<span class="arch-card__flag">${info.kind === "legacy" ? "Current state" : "Recommended"}</span>
-         <h3>${escapeHtml(info.name)}</h3>
-         <p class="arch-card__tagline">${escapeHtml(info.tagline)}</p>
-         <ul class="arch-card__stack">
-           ${info.stack.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
-         </ul>
-         <dl class="arch-card__stats">
-           <div><dt>Cost per call</dt><dd>${entry ? formatUnitCost(entry.perCallNet) : "—"}</dd></div>
-           <div><dt>Word error rate</dt><dd>${formatPercent(wer)}</dd></div>
-           <div><dt>Result ready</dt><dd>${latency ? formatSeconds(latency.end_to_end_seconds) : "—"}</dd></div>
-         </dl>
-         <p class="arch-card__returns"><strong>Returns:</strong> ${escapeHtml(info.returns)}</p>`,
-      ),
-    );
-  }
-  section.append(grid);
-  return section;
+/**
+ * The two stacks, as the tabs of the diagram viewer. Each card says what a stack is
+ * made of and what it returns; the numbers live in "What changes" and are not
+ * repeated here. Built once from the catalog — nothing on it depends on the run.
+ */
+export function renderArchitectureTabs(host: HTMLElement): void {
+  host.innerHTML = [ARCH_LEGACY, ARCH_MODERN]
+    .map((architectureId, index) => {
+      const info = PROFILES[architectureId]!;
+      const active = index === 0;
+      const nameId = `stack-tab-name-${index + 1}`;
+      return `
+      <a class="stack-tab stack-tab--${info.kind}${active ? " is-active" : ""}"
+         role="tab" aria-selected="${active}" aria-labelledby="${nameId}"
+         aria-controls="architecture-diagram-frame"
+         href="${diagramUrl(architectureId)}" target="architecture-diagram-frame">
+        <span class="stack-tab__head">
+          <span class="stack-tab__index" aria-hidden="true">${index + 1}</span>
+          <span class="stack-tab__flag">${info.kind === "legacy" ? "Current state" : "Recommended"}</span>
+        </span>
+        <span class="stack-tab__name" id="${nameId}">${escapeHtml(info.name)}</span>
+        <span class="stack-tab__tagline">${escapeHtml(info.tagline)}</span>
+        <ul class="stack-tab__stack">
+          ${info.stack.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
+        </ul>
+        <span class="stack-tab__returns"><strong>Returns:</strong> ${escapeHtml(info.returns)}</span>
+        <span class="stack-tab__cta">
+          <span class="stack-tab__cta-idle">Show its pipeline</span>
+          <span class="stack-tab__cta-active">Pipeline shown below</span>
+        </span>
+      </a>`;
+    })
+    .join("");
 }
 
 /* ----------------------------------------------------------------- projection */
@@ -277,7 +344,7 @@ function renderProjectionTable(projection: Projection): HTMLElement {
       <tr class="projection-row projection-row--${entry.kind}">
         <td>
           <span class="arch-cell__name">${escapeHtml(entry.kind === "legacy" ? "Today" : "Modernized")}</span>
-          <span class="stage-metrics">${escapeHtml(entry.label)}</span>
+          <span class="stage-metrics">${escapeHtml(entry.label.replace(/^[^—]+—\s*/, ""))}</span>
         </td>
         <td class="numeric">${formatUnitCost(entry.perCallList)}</td>
         <td class="numeric">${formatUnitCost(entry.perCallNet)}</td>
@@ -350,9 +417,8 @@ export function renderBusinessCase(
 ): void {
   const projection = projectCosts(report, settings);
   host.replaceChildren(
-    renderRetirementNotice(),
-    renderHero(projection),
+    renderContext(),
+    renderHero(report, projection),
     renderDeltas(report, projection),
-    renderComparisonCards(report, projection),
   );
 }

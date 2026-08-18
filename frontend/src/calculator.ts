@@ -16,6 +16,16 @@ let userSupplied = false;
 let measuredCallMinutes = DEFAULT_SETTINGS.averageCallMinutes;
 const listeners = new Set<(next: PricingSettings) => void>();
 
+/**
+ * Minutes as the input shows them: at most two decimals, no trailing zeros. The
+ * measured length is kept at full precision underneath, so the projection still
+ * reproduces the measurement exactly; only the digits a seller sees are trimmed —
+ * "8.4", not "8.402800000000001".
+ */
+function displayMinutes(value: number): string {
+  return String(Number(value.toFixed(2)));
+}
+
 function clamp(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, value));
@@ -74,7 +84,7 @@ export function syncMeasuredCallLength(
   const next = applyMeasuredCallLength(audioSeconds);
   if (next.averageCallMinutes !== previousCallMinutes) {
     const input = host.querySelector<HTMLInputElement>("#volume-call-minutes");
-    if (input) input.value = String(next.averageCallMinutes);
+    if (input) input.value = displayMinutes(next.averageCallMinutes);
   }
   return next;
 }
@@ -174,7 +184,7 @@ export function renderCalculator(host: HTMLElement): void {
       ${numberField(
         "volume-call-minutes",
         "Average call length",
-        String(settings.averageCallMinutes),
+        displayMinutes(settings.averageCallMinutes),
         { min: "0.1", max: "600", step: "any" },
         "Minutes. Defaults to the length of the call that was measured. Usage scales linearly from there — audio hours, transcript characters, and prompt tokens all grow with call length.",
       )}
@@ -207,6 +217,6 @@ export function renderCalculator(host: HTMLElement): void {
       if (control) control.value = percent(reset[field.key]);
     }
     if (calls) calls.value = String(reset.monthlyCalls);
-    if (minutes) minutes.value = String(reset.averageCallMinutes);
+    if (minutes) minutes.value = displayMinutes(reset.averageCallMinutes);
   });
 }

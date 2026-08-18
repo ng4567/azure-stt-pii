@@ -55,6 +55,18 @@
           class="viewtab"
           role="tab"
           aria-selected="false"
+          aria-controls="view-architectures"
+          data-panel="view-architectures"
+          tabindex="-1"
+        >
+          <span class="viewtab__name">Architectures</span>
+          <span class="viewtab__meta">The two stacks and their pipelines</span>
+        </button>
+        <button
+          type="button"
+          class="viewtab"
+          role="tab"
+          aria-selected="false"
           aria-controls="view-analytics"
           data-panel="view-analytics"
           tabindex="-1"
@@ -90,19 +102,35 @@
     </header>
 
     <main id="main">
-      <div class="sourcebar" id="source-bar" role="region" aria-label="Recording being priced"></div>
+      <div class="sourcebar" id="source-bar" role="region" aria-label="Recording being reported on"></div>
 
       <!-- ------------------------------------------------ business case -->
       <div id="view-business" class="view" role="tabpanel" aria-labelledby="view-tabs">
         <div id="source-notice"></div>
 
+        <div id="business-summary">
+          <p class="empty">Loading the saved comparison…</p>
+        </div>
+
+        <section class="panel panel--pricing" aria-labelledby="pricing-heading">
+          <div class="panel__head">
+            <h2 id="pricing-heading">Price it for your customer</h2>
+            <p class="panel__hint">
+              Enter the discounts on their agreement. Everything below recalculates from
+              usage measured on the saved run — nothing is hardcoded.
+            </p>
+          </div>
+          <div id="pricing-controls"></div>
+          <div id="pricing-results"></div>
+        </section>
+
         <details class="panel panel--run" id="run-panel">
           <summary class="run-summary">
             <span class="run-summary__title">Use the built-in call, or an approved test recording</span>
             <span class="run-summary__hint">
-              The comparison runs on a synthetic sample out of the box. To test another
-              recording, attach only synthetic or approved non-customer audio. Do not
-              upload customer data.
+              Every figure above comes from the recording named at the top of the page —
+              the synthetic sample out of the box. To test another recording, attach only
+              synthetic or approved non-customer audio. Do not upload customer data.
             </span>
           </summary>
 
@@ -175,67 +203,25 @@
             switches to that call automatically.
           </p>
         </details>
+      </div>
 
-        <div id="business-summary">
-          <p class="empty">Loading the saved comparison…</p>
-        </div>
-
-        <section class="panel panel--pricing" aria-labelledby="pricing-heading">
-          <div class="panel__head">
-            <h2 id="pricing-heading">Price it for your customer</h2>
-            <p class="panel__hint">
-              Enter the discounts on their agreement. Everything below recalculates from
-              usage measured on the saved run — nothing is hardcoded.
-            </p>
-          </div>
-          <div id="pricing-controls"></div>
-          <div id="pricing-results"></div>
-        </section>
-
+      <!-- ------------------------------------------------- architectures -->
+      <div id="view-architectures" class="view" role="tabpanel" aria-labelledby="view-tabs" hidden>
         <section class="panel panel--architectures" aria-labelledby="architectures-heading">
           <div class="panel__head panel__head--row">
-            <h2 id="architectures-heading">How each one works</h2>
+            <h2 id="architectures-heading">The two stacks, and how each one works</h2>
             <p class="panel__hint">
               Both land PII-safe records in the same Fabric analytics estate; only the
-              call-processing half differs.
+              call-processing half differs. Select a stack to see its pipeline.
             </p>
           </div>
 
           <div
-            class="arch-tabs"
+            class="stack-tabs"
             id="architecture-tabs"
             role="tablist"
-            aria-label="Architecture diagrams"
-          >
-            <a
-              class="arch-tab is-active"
-              role="tab"
-              aria-selected="true"
-              aria-controls="architecture-diagram-frame"
-              href="/api/architecture-diagrams/architecture-1-azure-language"
-              target="architecture-diagram-frame"
-            >
-              <span class="arch-tab__index">1</span>
-              <span class="arch-tab__body">
-                <span class="arch-tab__name">Today — Azure Speech + Azure AI Language</span>
-                <span class="arch-tab__meta">real-time STT · full redaction</span>
-              </span>
-            </a>
-            <a
-              class="arch-tab"
-              role="tab"
-              aria-selected="false"
-              aria-controls="architecture-diagram-frame"
-              href="/api/architecture-diagrams/architecture-2-mai-realtime-deepseek"
-              target="architecture-diagram-frame"
-            >
-              <span class="arch-tab__index">2</span>
-              <span class="arch-tab__body">
-                <span class="arch-tab__name">Modernized — MAI-Transcribe + Foundry</span>
-                <span class="arch-tab__meta">real-time STT · PII-safe summary</span>
-              </span>
-            </a>
-          </div>
+            aria-label="Architectures"
+          ></div>
 
           <iframe
             id="architecture-diagram-frame"

@@ -88,6 +88,9 @@ export interface SourceBarHandlers {
 /**
  * The bar is rebuilt whenever the run list changes, so it must not steal focus or
  * clobber a selection the user just made — hence `selectedId` comes in from outside.
+ *
+ * It always names the selected recording in prose; the picker only appears once
+ * there is something to switch to, so a lone recording never shows a dead control.
  */
 export function renderSourceBar(
   host: HTMLElement,
@@ -98,17 +101,10 @@ export function renderSourceBar(
   const active = sources.find((source) => source.id === selectedId) ?? sources[0];
   const hasOwn = sources.some((source) => !source.builtin);
 
-  host.innerHTML = `
-    <div class="sourcebar__lead">
-      <span class="sourcebar__eyebrow">Pricing this call</span>
-      <span class="sourcebar__detail">${
-        active ? escapeHtml(active.detail) : "no benchmark loaded yet"
-      }</span>
-    </div>
-    <div class="sourcebar__controls">
-      <label class="sourcebar__picker" for="source-select">
-        <span class="sourcebar__picker-label">Recording</span>
-        <select id="source-select"${sources.length < 2 ? " disabled" : ""}>
+  const picker = sources.length > 1
+    ? `<label class="sourcebar__picker" for="source-select">
+        <span class="sourcebar__picker-label">Switch recording</span>
+        <select id="source-select">
           ${sources
             .map(
               (source) =>
@@ -118,7 +114,21 @@ export function renderSourceBar(
             )
             .join("")}
         </select>
-      </label>
+      </label>`
+    : "";
+
+  host.innerHTML = `
+    <div class="sourcebar__lead">
+      <span class="sourcebar__eyebrow">Reporting on</span>
+      <span class="sourcebar__recording">
+        <strong class="sourcebar__name">${
+          active ? escapeHtml(active.label) : "No recording loaded yet"
+        }</strong>
+        ${active ? `<span class="sourcebar__detail">${escapeHtml(active.detail)}</span>` : ""}
+      </span>
+    </div>
+    <div class="sourcebar__controls">
+      ${picker}
       <button type="button" id="source-upload" class="primary-ghost">
         ${hasOwn ? "Run another test call" : "Attach an approved test call"}
       </button>
@@ -145,11 +155,12 @@ export function renderSourceNotice(
   const notice = document.createElement("aside");
   notice.className = "notice notice--own";
   notice.innerHTML = `
-    <h2>Using the selected test recording</h2>
+    <span class="notice__kicker">Your recording</span>
+    <h2>Every figure below comes from the selected test recording</h2>
     <p>
-      Every number below is measured from <strong>${escapeHtml(source.label.replace(/^Test call — /, ""))}</strong>
+      Measured from <strong>${escapeHtml(source.label.replace(/^Test call — /, ""))}</strong>
       — ${escapeHtml(source.detail)}. Switch back to the built-in sample any time
-      from the recording picker above.
+      from the recording picker at the top of the page.
     </p>`;
   host.replaceChildren(notice);
 }

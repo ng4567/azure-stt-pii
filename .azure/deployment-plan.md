@@ -99,6 +99,16 @@ Fabric analytics release revalidated on 2026-08-18 at `2026-08-18T19:10:58Z`:
 - Frontend managed identity `AcrPull` at the registry scope - PASS.
 - `bash -n .azure/deploy-aca.sh`, ignored local deployment details, and `git diff --check` - PASS.
 
+Business-case scenario release revalidated on 2026-08-18 at `2026-08-18T22:46:04Z`:
+
+- `origin/main` divergence check - PASS (`0` ahead, `0` behind before commit).
+- Frontend production build and type checking - PASS.
+- Frontend tests - PASS (`50 passed`).
+- `docker build -f frontend/Dockerfile .` - PASS, image `sha256:19c37efa5bd8087e4460cafdc8fa06d1c1db8adff1a3f7b398ffd4a6baea4358`.
+- Existing frontend Container App provisioning and scale configuration - PASS (`min 1`, `max 1`).
+- Frontend managed identity `AcrPull` at the registry scope - PASS.
+- `bash -n .azure/deploy-aca.sh`, ignored local deployment details, and `git diff --check` - PASS.
+
 - `bash -n .azure/deploy-aca.sh` - PASS.
 - `git check-ignore --no-index .azure/aca-deployment.local.json` - PASS; local details are excluded by `.git/info/exclude`.
 - `docker build -f backend/Dockerfile .` - PASS, image `sha256:6687524dcfb73bc2c1b1e59ab38e105d3f3fde54b807e4ecead5b3122fcbe25f`.

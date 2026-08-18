@@ -39,16 +39,20 @@ Today the UI can:
   present,
 - poll a run and show per-architecture latency, accuracy, and transcripts.
 
-It has four views. **Business case** is the default and the seller-facing one: the
-retirement hook, the measured deltas, a projection driven by three discount inputs
-(Azure AI Speech, Azure AI Language, Foundry model) plus call volume, and the upload
-form. **Post-call analytics** explains the Oracle-to-Fabric architecture and provides
-the seller talk track. **Call evidence** links every artifact back to its file in this
+It has five views. **Business case** is the default and the seller-facing one: the
+handoff scenario and the retirement hook, then the headline saving, the measured
+deltas, a projection driven by three discount inputs (Azure AI Speech, Azure AI
+Language, Foundry model) plus call volume, and — last — the upload form.
+**Architectures** shows the two stacks as tabs over their pipeline diagrams.
+**Post-call analytics** explains the Oracle-to-Fabric architecture and provides the
+seller talk track. **Call evidence** links every artifact back to its file in this
 repository. **Technical details** keeps the full measured tables and the run history.
 
-Every view reports on one *selected recording* (`frontend/src/source.ts`): the built-in
-sample call, or any completed run of an uploaded one. The source bar names it on every
-view, and a finished run is selected automatically.
+Every view that reads a report does so from one *selected recording*
+(`frontend/src/source.ts`): the built-in sample call, or any completed run of an
+uploaded one. The source bar names it on those views (Architectures and Post-call
+analytics are static and hide the bar), offers a picker only once there is more than
+one, and a finished run is selected automatically.
 
 ## Rules
 
